@@ -82,7 +82,7 @@ const formatDateForDisplay = (dateString) => {
     try {
       // Fetch INDENT data
       const indentResponse = await fetch(
-        'https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=INDENT&action=fetch'
+        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=INDENT&action=fetch'
       );
 
       if (!indentResponse.ok) {
@@ -133,7 +133,7 @@ const formatDateForDisplay = (dateString) => {
 
         // Fetch ENQUIRY data
         const enquiryResponse = await fetch(
-          'https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=ENQUIRY&action=fetch'
+          'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=ENQUIRY&action=fetch'
         );
 
         if (!enquiryResponse.ok) {
@@ -270,7 +270,7 @@ setEnquiryData(processedEnquiryData);
       };
 
       const response = await fetch(
-        'https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec',
+        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec',
         {
           method: 'POST',
           headers: {
@@ -459,7 +459,7 @@ setEnquiryData(processedEnquiryData);
 
     // Submit to ENQUIRY sheet
     const enquiryResponse = await fetch(
-      'https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec',
+      'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec',
       {
         method: 'POST',
         headers: {

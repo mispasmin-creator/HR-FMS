@@ -24,7 +24,7 @@ const StoreDepartment = () => {
 
     try {
       const response = await fetch(
-        'https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=JOINING&action=fetch'
+        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch'
       );
       
       if (!response.ok) {
@@ -125,7 +125,7 @@ const StoreDepartment = () => {
   try {
     // JOINING sheet से current data fetch करें
     const fullDataResponse = await fetch(
-      'https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=JOINING&action=fetch'
+      'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch'
     );
     
     const fullDataResult = await fullDataResponse.json();
@@ -162,7 +162,7 @@ const StoreDepartment = () => {
     // Update Column CD (index 81) with store asset handover details
     updatePromises.push(
       fetch(
-        "https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec",
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
         {
           method: "POST",
           headers: {
@@ -182,7 +182,7 @@ const StoreDepartment = () => {
     // Update Column CB (index 79) with current date (actual completion)
     updatePromises.push(
       fetch(
-        "https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec",
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
         {
           method: "POST",
           headers: {

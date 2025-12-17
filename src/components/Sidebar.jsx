@@ -136,7 +136,7 @@ useEffect(() => {
     try {
       // Fetch INDENT data
       const response = await fetch(
-        'https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=INDENT&action=fetch'
+        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=INDENT&action=fetch'
       );
       
       if (!response.ok) {
@@ -223,7 +223,7 @@ useEffect(() => {
   const fetchPendingAfterJoiningCount = async () => {
     try {
       const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=JOINING&action=fetch"
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
       );
 
       if (!response.ok) {
@@ -295,7 +295,7 @@ useEffect(() => {
   const fetchPendingIndentCount = async () => {
     try {
       const response = await fetch(
-        'https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=INDENT&action=fetch'
+        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=INDENT&action=fetch'
       );
       
       const result = await response.json();
@@ -352,7 +352,7 @@ useEffect(() => {
   const fetchPendingSocialSiteCount = async () => {
     try {
       const response = await fetch(
-        'https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=INDENT&action=fetch'
+        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=INDENT&action=fetch'
       );
       
       const result = await response.json();
@@ -393,8 +393,8 @@ useEffect(() => {
     try {
       // Fetch data from both ENQUIRY and Follow-Up sheets
       const [enquiryResponse, followUpResponse] = await Promise.all([
-        fetch("https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=ENQUIRY&action=fetch"),
-        fetch("https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=Follow - Up&action=fetch")
+        fetch("https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=ENQUIRY&action=fetch"),
+        fetch("https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Follow - Up&action=fetch")
       ]);
 
       const [enquiryResult, followUpResult] = await Promise.all([
@@ -479,8 +479,8 @@ useEffect(() => {
     try {
       // Fetch data from both ENQUIRY and Follow-Up sheets
       const [enquiryResponse, followUpResponse] = await Promise.all([
-        fetch("https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=ENQUIRY&action=fetch"),
-        fetch("https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=Follow - Up&action=fetch")
+        fetch("https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=ENQUIRY&action=fetch"),
+        fetch("https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Follow - Up&action=fetch")
       ]);
 
       const [enquiryResult, followUpResult] = await Promise.all([
@@ -554,7 +554,7 @@ useEffect(() => {
   const fetchPendingApprovalCount = async () => {
     try {
       const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=JOINING&action=fetch"
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
       );
 
       if (!response.ok) {
@@ -621,7 +621,7 @@ useEffect(() => {
   const fetchPendingAdminDepartmentCount = async () => {
     try {
       const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=JOINING&action=fetch"
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
       );
 
       if (!response.ok) {
@@ -688,7 +688,7 @@ useEffect(() => {
   const fetchPendingAccountDepartmentCount = async () => {
     try {
       const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=JOINING&action=fetch"
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
       );
 
       if (!response.ok) {
@@ -755,7 +755,7 @@ useEffect(() => {
   const fetchAdvanceReportCount = async () => {
     try {
       const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=Advance&action=fetch"
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Advance&action=fetch"
       );
 
       if (!response.ok) {
@@ -820,7 +820,7 @@ useEffect(() => {
   const fetchPendingStoreDepartmentCount = async () => {
     try {
       const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=JOINING&action=fetch"
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
       );
 
       if (!response.ok) {
@@ -889,7 +889,7 @@ useEffect(() => {
   const fetchPayrollCount = async () => {
     try {
       const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=Payroll&action=fetch"
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Payroll&action=fetch"
       );
 
       if (!response.ok) {
@@ -984,7 +984,7 @@ useEffect(() => {
   const fetchPendingLeavingCount = async () => {
     try {
       const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=JOINING&action=fetch"
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
       );
 
       if (!response.ok) {
@@ -1053,7 +1053,7 @@ useEffect(() => {
   const fetchPendingReportingManagerCount = async () => {
     try {
       const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=JOINING&action=fetch" // Changed from LEAVING to JOINING
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch" // Changed from LEAVING to JOINING
       );
 
       if (!response.ok) {
@@ -1119,7 +1119,7 @@ useEffect(() => {
   const fetchSiesEmployeesCount = async () => {
     try {
       const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=SIES EMPLOYEES&action=fetch"
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=SIES EMPLOYEES&action=fetch"
       );
 
       if (!response.ok) {
@@ -1205,7 +1205,7 @@ useEffect(() => {
   const fetchPendingITDepartmentCount = async () => {
     try {
       const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=JOINING&action=fetch"
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
       );
 
       if (!response.ok) {
@@ -1271,7 +1271,7 @@ useEffect(() => {
   const fetchPendingLeaveCount = async () => {
     try {
       const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=Leave Management&action=fetch"
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Leave Management&action=fetch"
       );
 
       if (!response.ok) {
@@ -1338,7 +1338,7 @@ useEffect(() => {
   const fetchEmployeeCount = async () => {
     try {
       const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=JOINING&action=fetch"
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
       );
 
       if (!response.ok) {
@@ -1423,8 +1423,8 @@ useEffect(() => {
     try {
       // Fetch both Payroll and JOINING data
       const [payrollResponse, joiningResponse] = await Promise.all([
-        fetch("https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=Payroll&action=fetch"),
-        fetch("https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=JOINING&action=fetch")
+        fetch("https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Payroll&action=fetch"),
+        fetch("https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch")
       ]);
 
       const payrollResult = await payrollResponse.json();
@@ -1496,7 +1496,7 @@ useEffect(() => {
   const fetchDeductionsCount = async () => {
     try {
       const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=Deductions&action=fetch"
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Deductions&action=fetch"
       );
 
       if (!response.ok) {

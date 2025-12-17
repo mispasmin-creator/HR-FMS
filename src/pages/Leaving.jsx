@@ -33,7 +33,7 @@ const fetchJoiningData = async () => {
 
   try {
     const response = await fetch(
-      'https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=JOINING&action=fetch'
+      'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch'
     );
     
     if (!response.ok) {
@@ -107,7 +107,7 @@ const fetchJoiningData = async () => {
 
     try {
       const response = await fetch(
-        'https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=LEAVING&action=fetch'
+        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=LEAVING&action=fetch'
       );
       
       if (!response.ok) {
@@ -274,7 +274,7 @@ const handleSubmit = async (e) => {
       value: formattedTimestamp,
     });
 
-    const updateActualResponse = await fetch('https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec', {
+    const updateActualResponse = await fetch('https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec', {
       method: 'POST',
       body: updateActualParams,
     });
@@ -302,7 +302,7 @@ const handleSubmit = async (e) => {
       value: formData.typeOfLeave,
     });
 
-    const updateTypeResponse = await fetch('https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec', {
+    const updateTypeResponse = await fetch('https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec', {
       method: 'POST',
       body: updateTypeParams,
     });
@@ -330,7 +330,7 @@ const handleSubmit = async (e) => {
       value: formattedLeavingDate,
     });
 
-    const updateDateResponse = await fetch('https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec', {
+    const updateDateResponse = await fetch('https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec', {
       method: 'POST',
       body: updateDateParams,
     });
@@ -358,7 +358,7 @@ const handleSubmit = async (e) => {
       value: formData.reasonOfLeaving,
     });
 
-    const updateReasonResponse = await fetch('https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec', {
+    const updateReasonResponse = await fetch('https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec', {
       method: 'POST',
       body: updateReasonParams,
     });
@@ -386,7 +386,7 @@ const handleSubmit = async (e) => {
       value: formattedLastWorkingDate,
     });
 
-    const updateLastWorkingResponse = await fetch('https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec', {
+    const updateLastWorkingResponse = await fetch('https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec', {
       method: 'POST',
       body: updateLastWorkingParams,
     });
@@ -427,7 +427,7 @@ const handleSubmit = async (e) => {
       rowData: JSON.stringify(rowData),
     });
 
-    const insertResponse = await fetch('https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec', {
+    const insertResponse = await fetch('https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec', {
       method: 'POST',
       body: insertParams,
     });

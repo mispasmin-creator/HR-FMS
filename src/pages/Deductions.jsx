@@ -24,7 +24,7 @@ const DeductionsReport = () => {
       setError(null);
       
       console.log('Fetching data from API...');
-      const response = await fetch('https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=Deductions&action=fetch');
+      const response = await fetch('https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Deductions&action=fetch');
       
       console.log('Response status:', response.status);
       

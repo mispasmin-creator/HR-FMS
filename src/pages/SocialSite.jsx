@@ -16,7 +16,7 @@ const SocialSite = () => {
   const [error, setError] = useState(null);
 
   // API Base URL - centralized
-  const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec';
+  const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec';
 
   const [formData, setFormData] = useState({
     socialSite: '',

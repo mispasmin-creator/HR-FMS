@@ -58,7 +58,7 @@
 
 //     // Fetch data from the Leave Management sheet
 //     const response = await fetch(
-//       'https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=Leave Management&action=fetch'
+//       'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Leave Management&action=fetch'
 //     );
     
 //     if (!response.ok) {
@@ -144,7 +144,7 @@
 // const fetchGatePassData = async () => {
 //   try {
 //     const response = await fetch(
-//       'https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=Gate Pass&action=fetch'
+//       'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Gate Pass&action=fetch'
 //     );
 
 //     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -201,7 +201,7 @@
 //       const userName = currentUser.Name;
 
 //       const response = await fetch(
-//         'https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=JOINING&action=fetch'
+//         'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch'
 //       );
       
 //       if (!response.ok) {
@@ -291,7 +291,7 @@
 //         // Fetch profile image from ENQUIRY sheet
 //         try {
 //           const enquiryResponse = await fetch(
-//             'https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=ENQUIRY&action=fetch'
+//             'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=ENQUIRY&action=fetch'
 //           );
           
 //           if (enquiryResponse.ok) {
@@ -378,7 +378,7 @@
       
 //       // 1. Fetch current data from JOINING sheet
 //       const fullDataResponse = await fetch(
-//         'https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=JOINING&action=fetch'
+//         'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch'
 //       );
       
 //       if (!fullDataResponse.ok) {
@@ -466,7 +466,7 @@
 
 //       // 8. Send update request
 //       const response = await fetch(
-//         "https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec",
+//         "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
 //         {
 //           method: "POST",
 //           headers: {
@@ -977,7 +977,7 @@ const MyProfile = () => {
     }
 
     const response = await fetch(
-      'https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=Leave Management&action=fetch'
+      'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Leave Management&action=fetch'
     );
     
     if (!response.ok) {
@@ -1083,7 +1083,7 @@ const MyProfile = () => {
   const fetchGatePassData = async () => {
     try {
       const response = await fetch(
-        'https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=Gate Pass&action=fetch'
+        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Gate Pass&action=fetch'
       );
 
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -1143,7 +1143,7 @@ const MyProfile = () => {
       const userName = currentUser.Name;
 
       const response = await fetch(
-        'https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=JOINING&action=fetch'
+        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch'
       );
       
       if (!response.ok) {
@@ -1207,7 +1207,7 @@ const MyProfile = () => {
         // Try to fetch profile image from ENQUIRY sheet
         try {
           const enquiryResponse = await fetch(
-            'https://script.google.com/macros/s/AKfycbxcsma34SkJ-jomOEkvewF21WutZrMnNjtXl7o7urJRAksOuqg_gSTNszfuK--PLORa1w/exec?sheet=ENQUIRY&action=fetch'
+            'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=ENQUIRY&action=fetch'
           );
           
           if (enquiryResponse.ok) {
