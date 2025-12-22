@@ -343,8 +343,8 @@ const formatDateForDisplay = (dateString) => {
         salary: row[21] || "",      // ← This should be salary (moved one column right)
         aadharNo: row[22] || "",
         resumeCopy: row[23] || "",
-        plannedDate: row[24] || "",
-        actual: row[25] || "",
+        plannedDate: row[23] || "",
+        actual: row[24] || "",
         employeeCode: row[26] || "",        // AA
         salaryConfirmation: row[27] || "",  // AB
         reportingOfficer: row[28] || "",    // AC

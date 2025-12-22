@@ -495,6 +495,13 @@ const Indent = () => {
                   <option value="Sales">Sales</option>
                   <option value="HR">HR</option>
                   <option value="Accounts">Accounts</option>
+                  <option value="Maintenance">Maintenance</option>
+                  <option value="Purchase">Purchase</option>
+                  <option value="Store">Store</option>
+                  <option value="Housekeeping">Housekeeping</option>
+                  <option value="Technical">Technical</option>
+                 <option value ="Finance">Finance</option>
+
                 </select>
               </div>
 
