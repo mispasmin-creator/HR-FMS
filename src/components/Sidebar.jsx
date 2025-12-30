@@ -243,39 +243,38 @@ useEffect(() => {
         throw new Error("Expected array data not received");
       }
 
-      // Adjust header row index if needed (same as AfterJoiningWork.js)
-      let headerRowIndex = 5;
-      
-      const dataRows = rawData.length > 6 ? rawData.slice(6) : [];
-    
-      let pendingCount = 0;
-      
-      dataRows.forEach((row, idx) => {
-        // EXACT SAME column indices as AfterJoiningWork.js
-        const plannedDate = row[24] || "";  // Column Y (index 24) - Planned Date
-        const actual = row[25] || "";       // Column Z (index 25) - Actual
-        
-        // EXACT SAME LOGIC
-        const hasPlannedDate = plannedDate && plannedDate.toString().trim() !== "";
-        const hasActual = actual && actual.toString().trim() !== "";
-        
-        if (hasPlannedDate && !hasActual) {
-          pendingCount++;
-          
-          // Debug: Show first 5 matches
-          if (pendingCount <= 5) {
-            console.log(`Pending item ${pendingCount}:`, {
-              row: idx + 7,
-              plannedDate,
-              actual,
-              name: row[2] || "No Name"
-            });
-          }
-        }
+      // Match EXACTLY the same logic as AfterJoiningWork.js
+      const processedData = rawData.slice(6).map((row, idx) => {
+        const item = {
+          plannedDate: row[23] || "",  // Column Y (index 24) - Planned Date
+          actual: row[24] || "",       // Column Z (index 25) - Actual
+          // Add other fields if needed for debugging
+          candidateName: row[2] || "", // Column C - Candidate Name
+          joiningNo: row[1] || "",     // Column B - Joining No
+        };
+        return item;
       });
 
-      console.log("MATCHING AfterJoiningWork.js logic - Total pending count:", pendingCount);
-      setPendingAfterJoiningCount(pendingCount);
+      // EXACT SAME LOGIC as AfterJoiningWork.js
+      const pendingTasks = processedData.filter(
+        (task) => task.plannedDate && 
+        task.plannedDate.trim() !== "" && 
+        (!task.actual || task.actual.trim() === "")
+      );
+
+      console.log("EXACT MATCH - Pending after joining count:", pendingTasks.length);
+      
+      // Debug: List all pending items
+      pendingTasks.forEach((task, index) => {
+        console.log(`Pending ${index + 1}:`, {
+          name: task.candidateName,
+          joiningNo: task.joiningNo,
+          plannedDate: task.plannedDate,
+          actual: task.actual
+        });
+      });
+
+      setPendingAfterJoiningCount(pendingTasks.length);
 
     } catch (error) {
       console.error("Error fetching pending after joining count:", error);

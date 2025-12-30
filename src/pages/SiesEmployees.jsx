@@ -1,867 +1,1650 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  Cell,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  LineChart,
+  Line,
+  AreaChart,
+  Area
+} from 'recharts';
+import {
+  Users,
+  UserCheck,
+  UserX,
+  Clock,
+  UserPlus,
+  TrendingUp,
+  FileText,
+  Calendar,
+  AlertCircle,
+  CheckCircle,
+  UserMinus,
+  Building,
+  Shield,
+  DollarSign,
+  Briefcase,
+  Activity,
+  ArrowUp,
+  ArrowDown
+} from 'lucide-react';
 
-const EmployeesReport = () => {
-  const [employeeData, setEmployeeData] = useState([]);
-  const [filteredData, setFilteredData] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [showActionForm, setShowActionForm] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const [remarks, setRemarks] = useState('');
-  const [showJoiningForm, setShowJoiningForm] = useState(false);
-  const [newEmployee, setNewEmployee] = useState({
-    name: '',
-    designation: '',
-    salary: '',
-    aadhaarCardNo: '',
-    panCardNo: '',
-    address: '',
-    joinDate: '',
-    mobileNo: ''
-  });
+const Dashboard = () => {
+  const [totalEmployee, setTotalEmployee] = useState(0);
+  const [activeEmployee, setActiveEmployee] = useState(0);
+  const [leftEmployee, setLeftEmployee] = useState(0);
+  const [leaveThisMonth, setLeaveThisMonth] = useState(0);
+  const [monthlyHiringData, setMonthlyHiringData] = useState([]);
+  const [designationData, setDesignationData] = useState([]);
+  const [leaveStatusData, setLeaveStatusData] = useState([]);
+  const [leaveTypeData, setLeaveTypeData] = useState([]);
+  const [departmentData, setDepartmentData] = useState([]);
 
+  // Add this near other state variables at the top
+  const [siesEmployeeCount, setSiesEmployeeCount] = useState(0);
+  const [femaleRatio, setFemaleRatio] = useState(0);
+  
+  // New states for pending counts
+  const [pendingJoiningCount, setPendingJoiningCount] = useState(0);
+  const [pendingAfterJoiningCount, setPendingAfterJoiningCount] = useState(0);
+  const [pendingLeavingCount, setPendingLeavingCount] = useState(0);
+  const [pendingHRApprovalCount, setPendingHRApprovalCount] = useState(0);
+  const [pendingAccountCount, setPendingAccountCount] = useState(0);
+  const [pendingITCount, setPendingITCount] = useState(0);
+  const [pendingReportingManagerCount, setPendingReportingManagerCount] = useState(0);
+  const [pendingAdminCount, setPendingAdminCount] = useState(0);
+  const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
+  const [pendingPayrollCount, setPendingPayrollCount] = useState(0);
+  
+  // New states for charts
+  const [attendanceTrendData, setAttendanceTrendData] = useState([]);
+  const [genderDistributionData, setGenderDistributionData] = useState([]);
+  const [monthlyTurnoverData, setMonthlyTurnoverData] = useState([]);
+  const [employeeGrowthData, setEmployeeGrowthData] = useState([]);
+  
+  // Stats
+  const [averageTenure, setAverageTenure] = useState(0);
+  const [attendanceRate, setAttendanceRate] = useState(0);
+  const [turnoverRate, setTurnoverRate] = useState(0);
+
+  // Parse DD/MM/YYYY format date
+  const parseSheetDate = (dateStr) => {
+    if (!dateStr) return null;
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return null;
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const year = parseInt(parts[2], 10);
+    if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
+    return new Date(year, month, day);
+  };
+
+  // Fetch pending counts
+  const fetchPendingCounts = async () => {
+    try {
+      // Fetch all pending counts in parallel
+      const [
+        joiningRes, afterJoiningRes, leavingRes, 
+        hrApprovalRes, accountRes, itRes, 
+        reportingRes, adminRes, leaveRes, payrollRes
+      ] = await Promise.all([
+        fetchPendingJoiningCount(),
+        fetchPendingAfterJoiningCount(),
+        fetchPendingLeavingCount(),
+        fetchPendingHRApprovalCount(),
+        fetchPendingAccountCount(),
+        fetchPendingITCount(),
+        fetchPendingReportingManagerCount(),
+        fetchPendingAdminCount(),
+        fetchPendingLeaveCount(),
+        fetchPendingPayrollCount()
+      ]);
+
+      setPendingJoiningCount(joiningRes);
+      setPendingAfterJoiningCount(afterJoiningRes);
+      setPendingLeavingCount(leavingRes);
+      setPendingHRApprovalCount(hrApprovalRes);
+      setPendingAccountCount(accountRes);
+      setPendingITCount(itRes);
+      setPendingReportingManagerCount(reportingRes);
+      setPendingAdminCount(adminRes);
+      setPendingLeaveCount(leaveRes);
+      setPendingPayrollCount(payrollRes);
+    } catch (error) {
+      console.error("Error fetching pending counts:", error);
+    }
+  };
+
+  // Individual pending count fetch functions - MATCHING SIDEBAR LOGIC
+
+  // Fetch SIES employees count - MATCHING SIDEBAR LOGIC
+  const fetchSiesEmployeesCount = async () => {
+    try {
+      const response = await fetch(
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=SIES EMPLOYEES&action=fetch"
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      const rawData = result.data || result;
+
+      if (!Array.isArray(rawData)) {
+        console.log("No data found in SIES EMPLOYEES sheet");
+        return 0;
+      }
+
+      console.log("Raw SIES employees data:", rawData.length, "rows total");
+
+      let activeCount = 0;
+      
+      if (rawData.length > 1) {
+        // Start from row 2 (index 1) to skip header
+        const dataRows = rawData.slice(1);
+        const headers = rawData[0] || [];
+        
+        // Find column indices
+        const nameIndex = headers.findIndex(header => 
+          header?.toString().trim().toLowerCase().includes('name') ||
+          header?.toString().trim().toLowerCase().includes('employee')
+        );
+        
+        const statusIndex = headers.findIndex(header => 
+          header?.toString().trim().toLowerCase().includes('status')
+        );
+        
+        console.log("Name column index:", nameIndex);
+        console.log("Status column index:", statusIndex);
+        
+        // Count rows that have employee name AND status is Active (not Inactive/Deleted)
+        dataRows.forEach((row, idx) => {
+          // Get employee name
+          const employeeName = nameIndex >= 0 ? row[nameIndex] : row[1] || '';
+          const hasName = employeeName.toString().trim() !== '';
+          
+          // Get status
+          const status = statusIndex >= 0 ? row[statusIndex] : '';
+          const statusStr = status.toString().trim().toLowerCase();
+          
+          // Count as active if has name AND status is not "inactive" or "deleted"
+          const isActive = hasName && 
+                         statusStr !== 'inactive' && 
+                         statusStr !== 'deleted' &&
+                         statusStr !== 'relieved';
+          
+          if (isActive) {
+            activeCount++;
+          }
+        });
+      }
+
+      console.log("Total active SIES employees:", activeCount);
+      return activeCount;
+
+    } catch (error) {
+      console.error('Error fetching SIES employees count:', error);
+      return 0;
+    }
+  };
+
+  // Fetch Active Employees from JOINING sheet - MATCHING SIDEBAR LOGIC
+  const fetchEmployeeCount = async () => {
+    try {
+      const response = await fetch(
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      const rawData = result.data || result;
+
+      if (!Array.isArray(rawData) || rawData.length < 7) {
+        console.log("No data found or insufficient rows");
+        return 0;
+      }
+
+      console.log("Raw data for employee count:", rawData.length, "rows");
+
+      // Process data starting from row 7 (index 6)
+      const dataRows = rawData.length > 6 ? rawData.slice(6) : [];
+      
+      let activeEmployeeCount = 0;
+      
+      dataRows.forEach((row, idx) => {
+        const candidateName = row[2] || ''; // Column C (index 2) - Candidate Name
+        const status = row[82] || ''; // Column CE (index 82) - Status
+        
+        // Count as active employee if:
+        // 1. Candidate name is not empty
+        // 2. Status is NOT "Leaved" (or status column is empty)
+        const hasName = candidateName && candidateName.toString().trim() !== '';
+        const isActive = !status || status.toString().toLowerCase() !== 'leaved';
+        
+        if (hasName && isActive) {
+          activeEmployeeCount++;
+        }
+      });
+
+      console.log("Total active employee count:", activeEmployeeCount);
+      return activeEmployeeCount;
+
+    } catch (error) {
+      console.error('Error fetching employee count:', error);
+      return 0;
+    }
+  };
+
+  // Fetch pending joining count - MATCHING SIDEBAR LOGIC
+  const fetchPendingJoiningCount = async () => {
+    try {
+      // Fetch data from both ENQUIRY and Follow-Up sheets
+      const [enquiryResponse, followUpResponse] = await Promise.all([
+        fetch("https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=ENQUIRY&action=fetch"),
+        fetch("https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Follow - Up&action=fetch")
+      ]);
+
+      const [enquiryResult, followUpResult] = await Promise.all([
+        enquiryResponse.json(),
+        followUpResponse.json()
+      ]);
+
+      if (enquiryResult.success && enquiryResult.data && enquiryResult.data.length >= 7) {
+        // Process enquiry data headers
+        const enquiryHeaders = enquiryResult.data[5].map((h) => h.trim());
+        const enquiryDataFromRow7 = enquiryResult.data.slice(6);
+        
+        const getIndex = (headerName) =>
+          enquiryHeaders.findIndex((h) => h === headerName);
+        
+        // Get indices for required columns
+        const plannedDateIndex = 27; // Column AB (0-indexed)
+        const actualJoiningDateIndex = 28; // Column AC (0-indexed)
+        const candidateEnquiryNoIndex = getIndex("Candidate Enquiry Number");
+        
+        if (candidateEnquiryNoIndex === -1) {
+          console.error("Candidate Enquiry Number column not found");
+          return 0;
+        }
+        
+        // Process follow-up data to get items with "Joining" status
+        let joiningEnquiryNumbers = [];
+        
+        if (followUpResult.success && followUpResult.data) {
+          const rawFollowUpData = followUpResult.data || followUpResult;
+          const followUpRows = Array.isArray(rawFollowUpData[0])
+            ? rawFollowUpData.slice(1)
+            : rawFollowUpData;
+          
+          // Get enquiry numbers with "Joining" status
+          followUpRows.forEach((row) => {
+            const enquiryNo = row[2] || ""; // Column C (index 2) - Enquiry No
+            const status = row[3] || "";    // Column D (index 3) - Status
+            if (enquiryNo && status === 'Joining') {
+              joiningEnquiryNumbers.push(enquiryNo);
+            }
+          });
+        }
+        
+        // Count pending items
+        let pendingCount = 0;
+        
+        enquiryDataFromRow7.forEach((row) => {
+          const enquiryNo = row[candidateEnquiryNoIndex];
+          const plannedDate = row[plannedDateIndex];
+          const actualJoiningDate = row[actualJoiningDateIndex];
+          
+          // Check conditions:
+          // 1. Has "Joining" status in follow-up
+          // 2. Has planned date
+          // 3. Does NOT have actual joining date
+          if (joiningEnquiryNumbers.includes(enquiryNo) &&
+              plannedDate && plannedDate.toString().trim() !== "" &&
+              (!actualJoiningDate || actualJoiningDate.toString().trim() === "")) {
+            pendingCount++;
+          }
+        });
+        
+        return pendingCount;
+      }
+    } catch (error) {
+      console.error('Error fetching pending joining count:', error);
+    }
+    return 0;
+  };
+
+  // Fetch pending after joining count - MATCHING SIDEBAR LOGIC
+  const fetchPendingAfterJoiningCount = async () => {
+    try {
+      const response = await fetch(
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        const rawData = result.data || result;
+        const processedData = rawData.slice(6).map((row) => ({
+          plannedDate: row[23] || "",
+          actual: row[24] || ""
+        }));
+
+        const pendingTasks = processedData.filter(
+          (task) => task.plannedDate && 
+          task.plannedDate.trim() !== "" && 
+          (!task.actual || task.actual.trim() === "")
+        );
+
+        return pendingTasks.length;
+      }
+    } catch (error) {
+      console.error("Error fetching pending after joining count:", error);
+    }
+    return 0;
+  };
+
+  // Fetch pending leaving count - MATCHING SIDEBAR LOGIC
+  const fetchPendingLeavingCount = async () => {
+    try {
+      const response = await fetch(
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      const rawData = result.data || result;
+
+      if (!Array.isArray(rawData) || rawData.length < 7) {
+        console.log("No data found or insufficient rows");
+        return 0;
+      }
+
+      console.log("Raw data for pending leaving count:", rawData.length, "rows");
+
+      // Process data starting from row 7 (index 6)
+      const dataRows = rawData.length > 6 ? rawData.slice(6) : [];
+      
+      let pendingCount = 0;
+      
+      dataRows.forEach((row, idx) => {
+        // Column indices (0-based):
+        // Column AZ = index 51
+        // Column BA = index 52
+        const columnAZ = row[51]; // Column AZ
+        const columnBA = row[52]; // Column BA
+        
+        // Condition: Column AZ has value AND Column BA is empty
+        if (columnAZ && columnAZ.toString().trim() !== "" && 
+            (!columnBA || columnBA.toString().trim() === "")) {
+          pendingCount++;
+        }
+      });
+
+      console.log("Total pending leaving count:", pendingCount);
+      return pendingCount;
+
+    } catch (error) {
+      console.error('Error fetching pending leaving count:', error);
+      return 0;
+    }
+  };
+
+  // Fetch pending HR approval count - MATCHING SIDEBAR LOGIC
+  const fetchPendingHRApprovalCount = async () => {
+    try {
+      const response = await fetch(
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      const rawData = result.data || result;
+
+      if (!Array.isArray(rawData) || rawData.length < 7) {
+        console.log("No data found or insufficient rows");
+        return 0;
+      }
+
+      console.log("Raw data for pending approval count:", rawData.length, "rows");
+
+      // Process data starting from row 7 (index 6)
+      const dataRows = rawData.length > 6 ? rawData.slice(6) : [];
+      
+      let pendingCount = 0;
+      
+      dataRows.forEach((row, idx) => {
+        // Column indices (0-based):
+        // Column BG = index 58 (approval request marker)
+        // Column BH = index 59 (approval completion timestamp)
+        const columnBG = row[58]; // Column BG
+        const columnBH = row[59]; // Column BH
+        
+        // Condition: Column BG has value AND Column BH is empty
+        if (columnBG && columnBG.toString().trim() !== "" && 
+            (!columnBH || columnBH.toString().trim() === "")) {
+          pendingCount++;
+        }
+      });
+
+      console.log("Total pending approval count:", pendingCount);
+      return pendingCount;
+
+    } catch (error) {
+      console.error('Error fetching pending approval count:', error);
+      return 0;
+    }
+  };
+
+  // Fetch pending Account count - MATCHING SIDEBAR LOGIC
+  const fetchPendingAccountCount = async () => {
+    try {
+      const response = await fetch(
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
+      );
+      const result = await response.json();
+      const rawData = result.data || result;
+
+      if (Array.isArray(rawData) && rawData.length >= 7) {
+        const dataRows = rawData.length > 6 ? rawData.slice(6) : [];
+        let pendingCount = 0;
+        
+        dataRows.forEach((row) => {
+          const columnBW = row[74];
+          const columnBX = row[75];
+          
+          if (columnBW && columnBW.toString().trim() !== "" && 
+              (!columnBX || columnBX.toString().trim() === "")) {
+            pendingCount++;
+          }
+        });
+
+        return pendingCount;
+      }
+    } catch (error) {
+      console.error('Error fetching pending account count:', error);
+    }
+    return 0;
+  };
+
+  // Fetch pending IT count - MATCHING SIDEBAR LOGIC
+  const fetchPendingITCount = async () => {
+    try {
+      const response = await fetch(
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      const rawData = result.data || result;
+
+      if (!Array.isArray(rawData) || rawData.length < 7) {
+        console.log("No data found or insufficient rows");
+        return 0;
+      }
+
+      console.log("Raw data for pending IT department count:", rawData.length, "rows");
+
+      // Process data starting from row 7 (index 6)
+      const dataRows = rawData.length > 6 ? rawData.slice(6) : [];
+      
+      let pendingCount = 0;
+      
+      dataRows.forEach((row, idx) => {
+        // Column indices (0-based) in JOINING sheet:
+        // Column BO = index 66 (IT department planned date)
+        // Column BP = index 67 (IT department actual date)
+        const columnBO = row[66]; // Column BO - itDeptPlanned
+        const columnBP = row[67]; // Column BP - itDeptActual
+        
+        // Condition: Column BO has value AND Column BP is empty
+        if (columnBO && columnBO.toString().trim() !== "" && 
+            (!columnBP || columnBP.toString().trim() === "")) {
+          pendingCount++;
+        }
+      });
+
+      console.log("Total pending IT department count:", pendingCount);
+      return pendingCount;
+
+    } catch (error) {
+      console.error('Error fetching pending IT department count:', error);
+      return 0;
+    }
+  };
+
+  // Fetch pending Reporting Manager count - MATCHING SIDEBAR LOGIC
+  const fetchPendingReportingManagerCount = async () => {
+    try {
+      const response = await fetch(
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      const rawData = result.data || result;
+
+      if (!Array.isArray(rawData) || rawData.length < 7) {
+        console.log("No data found or insufficient rows");
+        return 0;
+      }
+
+      console.log("Raw data for pending reporting manager count:", rawData.length, "rows");
+
+      // Process data starting from row 7 (index 6)
+      const dataRows = rawData.length > 6 ? rawData.slice(6) : [];
+      
+      let pendingCount = 0;
+      
+      dataRows.forEach((row, idx) => {
+        // Column indices (0-based) in JOINING sheet:
+        // Column BK = index 62 (reporting manager planned date)
+        // Column BL = index 63 (reporting manager actual date)
+        const columnBK = row[62]; // Column BK - reportingManagerPlanned
+        const columnBL = row[63]; // Column BL - reportingManagerActual
+        
+        // Condition: Column BK has value AND Column BL is empty
+        if (columnBK && columnBK.toString().trim() !== "" && 
+            (!columnBL || columnBL.toString().trim() === "")) {
+          pendingCount++;
+        }
+      });
+
+      console.log("Total pending reporting manager count:", pendingCount);
+      return pendingCount;
+
+    } catch (error) {
+      console.error('Error fetching pending reporting manager count:', error);
+      return 0;
+    }
+  };
+
+  // Fetch pending Admin count - MATCHING SIDEBAR LOGIC
+  const fetchPendingAdminCount = async () => {
+    try {
+      const response = await fetch(
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
+      );
+      const result = await response.json();
+      const rawData = result.data || result;
+
+      if (Array.isArray(rawData) && rawData.length >= 7) {
+        const dataRows = rawData.length > 6 ? rawData.slice(6) : [];
+        let pendingCount = 0;
+        
+        dataRows.forEach((row) => {
+          const columnBS = row[70];
+          const columnBT = row[71];
+          const columnCA = row[78];
+          const columnCB = row[79];
+          
+          const hasAdminPending = columnBS && columnBS.toString().trim() !== "" && 
+                                (!columnBT || columnBT.toString().trim() === "");
+          const hasStorePending = columnCA && columnCA.toString().trim() !== "" && 
+                                (!columnCB || columnCB.toString().trim() === "");
+          
+          if (hasAdminPending || hasStorePending) {
+            pendingCount++;
+          }
+        });
+
+        return pendingCount;
+      }
+    } catch (error) {
+      console.error('Error fetching pending admin count:', error);
+    }
+    return 0;
+  };
+
+  // Fetch pending Leave count - MATCHING SIDEBAR LOGIC
+  const fetchPendingLeaveCount = async () => {
+    try {
+      const response = await fetch(
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Leave Management&action=fetch"
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      const rawData = result.data || result;
+
+      if (!Array.isArray(rawData) || rawData.length < 2) {
+        console.log("No data found or insufficient rows in Leave Management sheet");
+        return 0;
+      }
+
+      console.log("Raw data for pending leave count:", rawData.length, "rows");
+
+      // Skip header row (row 1), data starts from row 2 (index 1)
+      const dataRows = rawData.length > 1 ? rawData.slice(1) : [];
+      
+      let pendingCount = 0;
+      
+      dataRows.forEach((row, idx) => {
+        // Column indices (0-based) in Leave Management sheet:
+        // Column H = index 7 (Status column)
+        const status = row[7] || ''; // Column H - Status
+        
+        // Column C = index 2 (Employee Name) - to filter out blank rows
+        const employeeName = row[3] || ''; // Column D (index 3) - Employee Name
+        
+        // Condition: Status is "Pending" (case-insensitive) AND employee name is not empty
+        if (status.toString().toLowerCase() === 'pending' && 
+            employeeName && employeeName.toString().trim() !== '') {
+          pendingCount++;
+        }
+      });
+
+      console.log("Total pending leave count:", pendingCount);
+      return pendingCount;
+
+    } catch (error) {
+      console.error('Error fetching pending leave count:', error);
+      return 0;
+    }
+  };
+
+  // Fetch pending Payroll count - MATCHING SIDEBAR LOGIC
+  const fetchPendingPayrollCount = async () => {
+    try {
+      const [payrollResponse, joiningResponse] = await Promise.all([
+        fetch("https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Payroll&action=fetch"),
+        fetch("https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch")
+      ]);
+
+      const payrollResult = await payrollResponse.json();
+      const joiningResult = await joiningResponse.json();
+
+      const payrollData = payrollResult.data || payrollResult;
+      const joiningData = joiningResult.data || joiningResult;
+
+      // Get current month/year
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear().toString();
+      const currentMonth = currentDate.toLocaleString('default', { month: 'long' });
+
+      // Get active employees from JOINING sheet (not "Leaved")
+      const activeEmployees = [];
+      if (Array.isArray(joiningData) && joiningData.length > 6) {
+        const joiningRows = joiningData.slice(6);
+        joiningRows.forEach(row => {
+          const employeeCode = row[26] || ''; // Column AA
+          const employeeName = row[2] || ''; // Column C
+          const status = row[82] || ''; // Column CE - Status
+          
+          if (employeeName && employeeCode && status.toLowerCase() !== 'leaved') {
+            activeEmployees.push(employeeCode);
+          }
+        });
+      }
+
+      // Get processed employees from Payroll for current month
+      const processedEmployees = new Set();
+      if (Array.isArray(payrollData) && payrollData.length > 1) {
+        const payrollRows = payrollData.slice(1);
+        payrollRows.forEach(row => {
+          const employeeCode = row[1] || ''; // Column B
+          const year = row[15] || ''; // Column P
+          const month = row[16] || ''; // Column Q
+          
+          if (year === currentYear && month === currentMonth && employeeCode) {
+            processedEmployees.add(employeeCode);
+          }
+        });
+      }
+
+      // Count active employees NOT in processed list
+      let pendingCount = 0;
+      activeEmployees.forEach(empCode => {
+        if (!processedEmployees.has(empCode)) {
+          pendingCount++;
+        }
+      });
+
+      console.log(`Unprocessed payroll employees for ${currentMonth} ${currentYear}:`, pendingCount);
+      return pendingCount;
+
+    } catch (error) {
+      console.error('Error fetching unprocessed payroll count:', error);
+      return 0;
+    }
+  };
+
+  // Fetch attendance trend data
+  const fetchAttendanceTrendData = async () => {
+    // Simulated data - replace with actual API call
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    const data = months.map(month => ({
+      month,
+      present: Math.floor(Math.random() * 80) + 20,
+      absent: Math.floor(Math.random() * 20) + 5,
+      late: Math.floor(Math.random() * 15) + 3
+    }));
+    setAttendanceTrendData(data);
+  };
+
+  // Fetch gender distribution from JOINING sheet Gender column (K) - MATCHING SIDEBAR LOGIC
+  const fetchGenderDistribution = async () => {
+    try {
+      const response = await fetch(
+        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
+      );
+      const result = await response.json();
+      const rawData = result.data || result;
+
+      if (Array.isArray(rawData) && rawData.length > 6) {
+        const dataRows = rawData.slice(6);
+        let maleCount = 0;
+        let femaleCount = 0;
+        let totalCount = 0;
+        
+        dataRows.forEach(row => {
+          const gender = row[10] || ''; // Column K (0-based index: 10 = K)
+          const genderStr = gender.toString().toLowerCase().trim();
+          
+          if (genderStr) {
+            totalCount++;
+            if (genderStr.includes('male') && !genderStr.includes('female')) {
+              maleCount++;
+            } else if (genderStr.includes('female')) {
+              femaleCount++;
+            }
+            // If gender is "transgender", "other", or not specified, it's not counted in male/female
+          }
+        });
+
+        // Calculate female ratio (percentage of total)
+        const calculatedFemaleRatio = totalCount > 0 ? 
+          ((femaleCount / totalCount) * 100).toFixed(1) : 0;
+        
+        setFemaleRatio(parseFloat(calculatedFemaleRatio));
+
+        // Update the gender distribution chart data
+        setGenderDistributionData([
+          { name: 'Male', value: maleCount, color: '#3B82F6' },
+          { name: 'Female', value: femaleCount, color: '#EC4899' }
+        ]);
+      }
+    } catch (error) {
+      console.error('Error fetching gender distribution:', error);
+      setFemaleRatio(0);
+    }
+  };
+
+  // Fetch Leave Management Data
+  const fetchLeaveManagementAnalytics = async () => {
+    try {
+      const response = await fetch(
+        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Leave%20Management&action=fetch'
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch data from Leave Management sheet');
+      }
+
+      const rawData = result.data || result;
+      if (!Array.isArray(rawData)) {
+        throw new Error('Expected array data not received');
+      }
+
+      const headers = rawData[0];
+      const dataRows = rawData.slice(1);
+
+      const statusIndex = headers.findIndex(h => h && h.toString().trim().toLowerCase().includes("status"));
+      const leaveTypeIndex = headers.findIndex(h => h && h.toString().trim().toLowerCase().includes("leave type"));
+      
+      const statusCounts = {};
+      const typeCounts = {};
+
+      dataRows.forEach(row => {
+        const status = row[statusIndex]?.toString().trim() || 'Unknown';
+        if (statusCounts[status]) {
+          statusCounts[status] += 1;
+        } else {
+          statusCounts[status] = 1;
+        }
+
+        const leaveType = row[leaveTypeIndex]?.toString().trim() || 'Unknown';
+        if (typeCounts[leaveType]) {
+          typeCounts[leaveType] += 1;
+        } else {
+          typeCounts[leaveType] = 1;
+        }
+      });
+
+      const statusArray = Object.keys(statusCounts).map(key => ({
+        status: key,
+        count: statusCounts[key]
+      }));
+
+      const typeArray = Object.keys(typeCounts).map(key => ({
+        type: key,
+        count: typeCounts[key]
+      }));
+
+      setLeaveStatusData(statusArray);
+      setLeaveTypeData(typeArray);
+
+    } catch (error) {
+      console.error("Error fetching leave management analytics:", error);
+      setLeaveStatusData([]);
+      setLeaveTypeData([]);
+    }
+  };
+
+  // Fetch total employees from LEAVING sheet - MATCHING YOUR REQUIREMENT
+  const fetchTotalEmployeesFromLeaving = async () => {
+    try {
+      const response = await fetch(
+        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=LEAVING&action=fetch'
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch data from LEAVING sheet');
+      }
+
+      const rawData = result.data || result;
+      if (!Array.isArray(rawData)) {
+        throw new Error('Expected array data not received');
+      }
+
+      const headers = rawData[5];
+      const dataRows = rawData.slice(6);
+
+      // Count all rows in LEAVING sheet (from row 7 onwards)
+      return dataRows.length;
+
+    } catch (error) {
+      console.error("Error fetching total from leaving count:", error);
+      return 0;
+    }
+  };
+
+  const fetchDepartmentData = async () => {
+    try {
+      const response = await fetch(
+        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch'
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch data from JOINING sheet');
+      }
+
+      const rawData = result.data || result;
+      if (!Array.isArray(rawData)) {
+        throw new Error('Expected array data not received');
+      }
+
+      const headers = rawData[5];
+      const dataRows = rawData.length > 6 ? rawData.slice(6) : [];
+
+      const departmentIndex = 20;
+      const departmentCounts = {};
+
+      dataRows.forEach(row => {
+        let department = row[departmentIndex]?.toString().trim();
+        
+        if (department) {
+          if (department.toLowerCase().includes('maintenace')) {
+            department = 'Maintenance';
+          } else if (department.toLowerCase().includes('prosuction')) {
+            department = 'Production';
+          } else if (department.toLowerCase().includes('transport account')) {
+            department = 'Transport Accounts';
+          }
+          
+          if (departmentCounts[department]) {
+            departmentCounts[department] += 1;
+          } else {
+            departmentCounts[department] = 1;
+          }
+        }
+      });
+
+      const departmentArray = Object.keys(departmentCounts).map(key => ({
+        department: key,
+        employees: departmentCounts[key]
+      }));
+
+      return departmentArray;
+
+    } catch (error) {
+      console.error("Error fetching department data:", error);
+      return [];
+    }
+  };
+
+  // Fetch employees who left this month from LEAVING sheet
+  const fetchEmployeesLeftThisMonth = async () => {
+    try {
+      const response = await fetch(
+        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=LEAVING&action=fetch'
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch data from LEAVING sheet');
+      }
+
+      const rawData = result.data || result;
+      if (!Array.isArray(rawData)) {
+        throw new Error('Expected array data not received');
+      }
+
+      const dataRows = rawData.slice(6);
+
+      let thisMonthCount = 0;
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+      
+      if (dataRows.length > 0) {
+        thisMonthCount = dataRows.filter(row => {
+          const dateStr = row[3];
+          if (dateStr) {
+            const parsedDate = parseSheetDate(dateStr);
+            return (
+              parsedDate &&
+              parsedDate.getMonth() === currentMonth &&
+              parsedDate.getFullYear() === currentYear
+            );
+          }
+          return false;
+        }).length;
+      }
+
+      return thisMonthCount;
+
+    } catch (error) {
+      console.error("Error fetching employees left this month:", error);
+      return 0;
+    }
+  };
+
+  const prepareMonthlyHiringData = (hiringData, leavingData) => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentDate = new Date();
+    const result = [];
+    
+    for (let i = 5; i >= 0; i--) {
+      const monthIndex = (currentDate.getMonth() - i + 12) % 12;
+      const monthYear = `${months[monthIndex]} ${currentDate.getFullYear()}`;
+      
+      result.push({
+        month: months[monthIndex],
+        hired: hiringData[monthYear]?.hired || 0,
+        left: leavingData[monthYear]?.left || 0
+      });
+    }
+    
+    return result;
+  };
+
+  // Calculate additional stats
+  const calculateStats = () => {
+    // Total employees includes LEAVING + SIES
+    const totalEmployees = totalEmployee;
+    
+    // Calculate turnover rate based on employees who left vs total
+    const calculatedTurnoverRate = totalEmployees > 0 ? 
+      ((leftEmployee / totalEmployees) * 100).toFixed(1) : 0;
+      
+    const calculatedAttendanceRate = 95.5; // Simulated - replace with actual calculation
+    const calculatedAverageTenure = 2.3; // Simulated - replace with actual calculation
+    
+    setTurnoverRate(calculatedTurnoverRate);
+    setAttendanceRate(calculatedAttendanceRate);
+    setAverageTenure(calculatedAverageTenure);
+  };
+
+  // MAIN DATA FETCHING - MATCHING YOUR REQUIREMENTS
   useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch all data in parallel
+        const [
+          leavingTotal, 
+          siesCount, 
+          activeCount, 
+          leftThisMonth,
+          departmentResult,
+          genderResult
+        ] = await Promise.all([
+          fetchTotalEmployeesFromLeaving(), // Total from LEAVING sheet
+          fetchSiesEmployeesCount(), // Active SIES count
+          fetchEmployeeCount(), // Active employees from JOINING sheet
+          fetchEmployeesLeftThisMonth(), // Employees left this month from LEAVING
+          fetchDepartmentData(),
+          // fetchLeaveManagementAnalytics() - removed as not needed in parallel
+        ]);
+
+        // Set the counts as per your requirements:
+        // 1. Total Employees = LEAVING sheet total + SIES employees count
+        setTotalEmployee(leavingTotal + siesCount);
+        
+        // 2. Active Employees = from JOINING sheet (matching sidebar logic)
+        setActiveEmployee(activeCount);
+        
+        // 3. SIES Employees count
+        setSiesEmployeeCount(siesCount);
+        
+        // 4. Left Employee (on resigned) = Total from LEAVING sheet
+        setLeftEmployee(leavingTotal);
+        
+        // 5. Left This Month = from LEAVING sheet
+        setLeaveThisMonth(leftThisMonth);
+        
+        // 6. Department data
+        setDepartmentData(departmentResult);
+
+        // Fetch other data
+        await Promise.all([
+          fetchPendingCounts(),
+          fetchAttendanceTrendData(),
+          fetchGenderDistribution(), // This will set femaleRatio
+          fetchLeaveManagementAnalytics()
+        ]);
+        
+        calculateStats();
+        
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+
     fetchData();
+    
+    // Refresh data every 30 seconds
+    const interval = setInterval(fetchData, 30000);
+    return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (searchTerm.trim() === '') {
-      setFilteredData(employeeData);
-    } else {
-      const filtered = employeeData.filter(employee =>
-        employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        employee.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        employee.designation.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredData(filtered);
-    }
-  }, [searchTerm, employeeData]);
-
-  const fetchData = async () => {
-  try {
-    setLoading(true);
-    const response = await fetch('https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=SIES EMPLOYEES&action=fetch');
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch data');
-    }
-    
-    const data = await response.json();
-    console.log('Raw API Response:', data);
-    
-    if (data.success) {
-      const processedData = processSheetData(data.data);
-      // Filter out inactive employees
-      const activeEmployees = processedData.filter(emp => 
-        emp.status !== 'Inactive' && emp.status !== 'Deleted'
-      );
-      setEmployeeData(activeEmployees);
-      setFilteredData(activeEmployees);
-    } else {
-      throw new Error(data.error || 'Failed to fetch data from sheet');
-    }
-  } catch (err) {
-    setError(err.message);
-    console.error('Error fetching employee data:', err);
-  } finally {
-    setLoading(false);
-  }
-};
-
-  const processSheetData = (sheetData) => {
-  if (!sheetData || sheetData.length < 2) {
-    console.log('No sheet data available');
-    return [];
-  }
-  
-  console.log('Sheet Data:', sheetData);
-  
-  const headers = sheetData[0];
-  const rows = sheetData.slice(1);
-  
-  // Map column names to indices
-  const columnMap = {};
-  headers.forEach((header, index) => {
-    columnMap[header.trim()] = index;
-  });
-  
-  console.log('Column Map:', columnMap);
-  
-  return rows.map((row, index) => {
-    // Get values from each column
-    const serialNo = row[columnMap['S. No.']] || index + 1;
-    const employeeId = row[columnMap['Employee Id']] || '';
-    const name = row[columnMap['Name Of The Employee']] || '';
-    const designation = row[columnMap['Designation']] || '';
-    const salary = parseFloat(row[columnMap['Salary']]) || 0;
-    const aadhaarCardNo = row[columnMap['Adhaar Card No.']] || '';
-    const panCardNo = row[columnMap['Pan Card No.']] || '';
-    const address = row[columnMap['Adress.']] || '';
-    const joinDate = row[columnMap['Join Date.']] || '';
-    const mobileNo = row[columnMap['Mobile No.']] || '';
-    const status = row[columnMap['Status']] || 'Active';
-    const remarks = row[columnMap['Remarks']] || '';
-    
-    // Generate avatar based on name
-    const avatar = name && name.trim() !== '' ? 
-      (name.split(' ').length > 1 ? 
-        `${name.split(' ')[0][0]}${name.split(' ')[1][0]}`.toUpperCase() : 
-        name[0].toUpperCase()) : 
-      '👤';
-
-    return {
-      id: index + 1,
-      serialNo,
-      employeeId,
-      name,
-      designation,
-      salary,
-      aadhaarCardNo,
-      panCardNo,
-      address,
-      joinDate,
-      mobileNo,
-      status,
-      remarks,
-      avatar
+  // Color palette
+  const getStatusColor = (status) => {
+    const colors = {
+      'approved': '#10B981',
+      'pending': '#F59E0B',
+      'rejected': '#EF4444',
+      'cancelled': '#6B7280'
     };
-  });
-};
-
-  const handleActionClick = (employee) => {
-    setSelectedEmployee(employee);
-    setShowActionForm(true);
-    setRemarks('');
+    return colors[status.toLowerCase()] || '#3B82F6';
   };
 
-  const handleRelieveEmployee = async () => {
-    if (!selectedEmployee || !remarks.trim()) {
-      alert('Please enter remarks before relieving employee');
-      return;
-    }
-
-    try {
-      const response = await fetch('https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          action: 'relieveEmployee',
-          employeeId: selectedEmployee.employeeId,
-          remarks: remarks
-        })
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        alert('Employee relieved successfully');
-        fetchData(); // Refresh data
-        setShowActionForm(false);
-        setSelectedEmployee(null);
-        setRemarks('');
-      } else {
-        alert('Error: ' + result.error);
-      }
-    } catch (error) {
-      console.error('Error relieving employee:', error);
-      alert('Failed to relieve employee');
-    }
+  const getTypeColor = (index) => {
+    const colors = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'];
+    return colors[index % colors.length];
   };
 
-const handleDeleteClick = async (employee) => {
-  if (!window.confirm(`Are you sure you want to Delete ${employee.name} (${employee.employeeId}) .`)) {
-    return;
-  }
-
-  try {
-    // First, let's get the exact row number from the sheet
-    const fetchResponse = await fetch('https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=SIES EMPLOYEES&action=fetch');
-    const fetchResult = await fetchResponse.json();
-    
-    if (!fetchResult.success) {
-      throw new Error('Failed to fetch sheet data');
+  // Pending cards configuration
+  const pendingCards = [
+    {
+      title: 'Joining Pending',
+      count: pendingJoiningCount,
+      icon: UserPlus,
+      color: 'bg-blue-500',
+      textColor: 'text-blue-500',
+      path: '/joining'
+    },
+    {
+      title: 'After Joining Pending',
+      count: pendingAfterJoiningCount,
+      icon: UserCheck,
+      color: 'bg-green-500',
+      textColor: 'text-green-500',
+      path: '/after-joining-work'
+    },
+    {
+      title: 'Leaving Pending',
+      count: pendingLeavingCount,
+      icon: UserX,
+      color: 'bg-red-500',
+      textColor: 'text-red-500',
+      path: '/leaving'
+    },
+    {
+      title: 'HR Approvals Pending',
+      count: pendingHRApprovalCount,
+      icon: Shield,
+      color: 'bg-purple-500',
+      textColor: 'text-purple-500',
+      path: '/hod-verification'
+    },
+    {
+      title: 'Accounts Pending',
+      count: pendingAccountCount,
+      icon: DollarSign,
+      color: 'bg-yellow-500',
+      textColor: 'text-yellow-500',
+      path: '/admin-department'
+    },
+    {
+      title: 'IT Department Pending',
+      count: pendingITCount,
+      icon: Building,
+      color: 'bg-indigo-500',
+      textColor: 'text-indigo-500',
+      path: '/it-department'
+    },
+    {
+      title: 'Reporting Manager Pending',
+      count: pendingReportingManagerCount,
+      icon: UserMinus,
+      color: 'bg-pink-500',
+      textColor: 'text-pink-500',
+      path: '/reporting-manager'
+    },
+    {
+      title: 'Admin Pending',
+      count: pendingAdminCount,
+      icon: Briefcase,
+      color: 'bg-orange-500',
+      textColor: 'text-orange-500',
+      path: '/admin-department'
+    },
+    {
+      title: 'Leave Requests Pending',
+      count: pendingLeaveCount,
+      icon: Calendar,
+      color: 'bg-teal-500',
+      textColor: 'text-teal-500',
+      path: '/leave-management'
+    },
+    {
+      title: 'Payroll Pending',
+      count: pendingPayrollCount,
+      icon: FileText,
+      color: 'bg-cyan-500',
+      textColor: 'text-cyan-500',
+      path: '/payroll'
     }
-
-    const sheetData = fetchResult.data || [];
-    const headers = sheetData[0];
-    const rows = sheetData.slice(1);
-    
-    // Find the row index where employeeId matches
-    let rowIndex = -1;
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      // Assuming Employee Id is column B (index 1)
-      if (row[1] === employee.employeeId) {
-        rowIndex = i + 2; // +2 because: +1 for header row, +1 for 1-based indexing
-        break;
-      }
-    }
-    
-    if (rowIndex === -1) {
-      throw new Error('Employee not found in sheet');
-    }
-    
-    // Find the column index for "Status" column
-    let statusColumnIndex = -1;
-    for (let i = 0; i < headers.length; i++) {
-      if (headers[i].trim() === 'Status') {
-        statusColumnIndex = i + 1; // +1 for 1-based indexing
-        break;
-      }
-    }
-    
-    if (statusColumnIndex === -1) {
-      // If Status column not found, try to find which column it might be
-      // Usually Status is one of the last columns
-      statusColumnIndex = 11; // Column K (assuming Status is column 11)
-    }
-    
-    console.log('Updating:', {
-      rowIndex,
-      statusColumnIndex,
-      employeeId: employee.employeeId
-    });
-    
-    // Use updateCell action to set Status to "Inactive"
-    const response = await fetch('https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        sheetName: 'SIES EMPLOYEES',
-        action: 'updateCell',
-        rowIndex: rowIndex.toString(),
-        columnIndex: statusColumnIndex.toString(),
-        value: 'Inactive'
-      })
-    });
-
-    const result = await response.json();
-    console.log('Update response:', result);
-    
-    if (result.success) {
-      alert('Employee Deleted successfully');
-      fetchData(); // Refresh data
-    } else {
-      // Try alternative column indices
-      await tryAlternativeColumns(rowIndex, employee);
-    }
-  } catch (error) {
-    console.error('Error marking employee as inactive:', error);
-    alert(`Failed to update employee: ${error.message}`);
-  }
-};
-
-// Try different column indices for Status
-const tryAlternativeColumns = async (rowIndex, employee) => {
-  // Status column might be at different positions
-  const possibleColumns = [10, 11, 12, 13]; // Try columns J, K, L, M
-  
-  for (const columnIndex of possibleColumns) {
-    try {
-      console.log(`Trying column ${columnIndex} for Status...`);
-      
-      const response = await fetch('https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          sheetName: 'SIES EMPLOYEES',
-          action: 'updateCell',
-          rowIndex: rowIndex.toString(),
-          columnIndex: columnIndex.toString(),
-          value: 'Inactive'
-        })
-      });
-
-      const result = await response.json();
-      console.log(`Column ${columnIndex} result:`, result);
-      
-      if (result.success) {
-        alert('Employee marked as Inactive successfully');
-        fetchData();
-        return true;
-      }
-    } catch (error) {
-      console.log(`Column ${columnIndex} failed:`, error);
-    }
-  }
-  
-  // If all column attempts fail, try using the "insert" action in a different way
-  try {
-    await tryUpdateViaInsert(employee);
-  } catch (error) {
-    console.error('All update methods failed:', error);
-    alert('Could not update employee status. Please check the Google Sheet manually.');
-    return false;
-  }
-};
-
-// Alternative method: Update via insert action with row data
-const tryUpdateViaInsert = async (employee) => {
-  try {
-    const response = await fetch('https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        sheetName: 'SIES EMPLOYEES',
-        action: 'insert',
-        updateExisting: 'true',
-        employeeId: employee.employeeId,
-        status: 'Inactive'
-      })
-    });
-
-    const result = await response.json();
-    
-    if (result.success) {
-      alert('Employee status updated to Inactive');
-      fetchData();
-      return true;
-    } else {
-      throw new Error(result.error || 'Insert update failed');
-    }
-  } catch (error) {
-    throw error;
-  }
-};
-
-  const handleNewEmployeeChange = (e) => {
-    const { name, value } = e.target;
-    setNewEmployee(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
- const handleAddEmployee = async (e) => {
-  e.preventDefault();
-  
-  // Prevent double submission
-  const submitButton = e.target.querySelector('button[type="submit"]');
-  if (submitButton && submitButton.disabled) return;
-  if (submitButton) submitButton.disabled = true;
-  
-  // Validate required fields
-  if (!newEmployee.name || !newEmployee.designation || !newEmployee.joinDate) {
-    alert('Please fill in all required fields (Name, Designation, Join Date)');
-    if (submitButton) submitButton.disabled = false;
-    return;
-  }
-
-  try {
-    // Get the current data
-    const fetchResponse = await fetch('https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=SIES EMPLOYEES&action=fetch');
-    const fetchResult = await fetchResponse.json();
-    
-    if (!fetchResult.success) {
-      throw new Error('Failed to fetch employee data');
-    }
-
-    const sheetData = fetchResult.data || [];
-    const rows = sheetData.slice(1); // Remove header row
-    
-    // ★★★ FIXED: Find the highest existing employee number ★★★
-    let maxEmployeeNumber = 0;
-    
-    rows.forEach(row => {
-      const employeeId = row[1]; // Assuming column B has Employee ID
-      if (employeeId) {
-        // Check if it's in SIES-XXXX format
-        if (employeeId.includes('SIES-')) {
-          const match = employeeId.match(/SIES-(\d+)/);
-          if (match) {
-            const num = parseInt(match[1]);
-            if (num > maxEmployeeNumber) {
-              maxEmployeeNumber = num;
-            }
-          }
-        }
-        // Also check EMP format for consistency
-        else if (employeeId.includes('EMP')) {
-          const match = employeeId.match(/EMP(\d+)/);
-          if (match) {
-            const num = parseInt(match[1]);
-            if (num > maxEmployeeNumber) {
-              maxEmployeeNumber = num;
-            }
-          }
-        }
-      }
-    });
-    
-    // Calculate next employee number and serial
-    const nextEmployeeNumber = maxEmployeeNumber + 1;
-    const nextEmployeeId = `SIES-${String(nextEmployeeNumber).padStart(4, '0')}`;
-    const nextSerialNo = rows.length + 1; // S.No. is just row count
-    
-    console.log('Next Employee:', {
-      nextEmployeeNumber,
-      nextEmployeeId,
-      nextSerialNo,
-      maxEmployeeNumber,
-      totalRows: rows.length
-    });
-    
-    // Use the insert action
-    const insertResponse = await fetch('https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        sheetName: 'SIES EMPLOYEES',
-        action: 'insert',
-        rowData: JSON.stringify([
-          nextSerialNo,
-          nextEmployeeId,
-          newEmployee.name,
-          newEmployee.designation,
-          newEmployee.salary || '',
-          newEmployee.aadhaarCardNo || '',
-          newEmployee.panCardNo || '',
-          newEmployee.address || '',
-          newEmployee.joinDate,
-          newEmployee.mobileNo || '',
-          'Active',
-          '' // Remarks column
-        ])
-      })
-    });
-    
-    const insertResult = await insertResponse.json();
-    
-    if (insertResult.success) {
-      alert(`Employee added successfully! Employee ID: ${nextEmployeeId}`);
-      setShowJoiningForm(false);
-      setNewEmployee({
-        name: '',
-        designation: '',
-        salary: '',
-        aadhaarCardNo: '',
-        panCardNo: '',
-        address: '',
-        joinDate: '',
-        mobileNo: ''
-      });
-      fetchData(); // Refresh the list
-    } else {
-      alert('Error: ' + (insertResult.error || 'Failed to add employee'));
-    }
-
-  } catch (error) {
-    console.error('Error adding employee:', error);
-    alert(`Failed to add employee: ${error.message}`);
-  } finally {
-    // Re-enable the button
-    if (submitButton) {
-      submitButton.disabled = false;
-    }
-  }
-};
-
-  const CurrencyDisplay = ({ value }) => {
-    const formatCurrency = (amount) => {
-      return new Intl.NumberFormat('en-IN', {
-        style: 'currency',
-        currency: 'INR',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(amount);
-    };
-
-    return (
-      <span className="text-sm font-medium text-gray-900">
-        {formatCurrency(value)}
-      </span>
-    );
-  };
-
-  const formatMobileNumber = (mobile) => {
-    if (!mobile) return '-';
-    const cleaned = mobile.toString().replace(/\D/g, '');
-    if (cleaned.length === 10) {
-      return `${cleaned.slice(0,5)} ${cleaned.slice(5)}`;
-    }
-    return mobile;
-  };
-
-  const formatAadhaarNumber = (aadhaar) => {
-    if (!aadhaar) return '-';
-    const cleaned = aadhaar.toString().replace(/\D/g, '');
-    if (cleaned.length === 12) {
-      return `${cleaned.slice(0,4)} ${cleaned.slice(4,8)} ${cleaned.slice(8)}`;
-    }
-    return aadhaar;
-  };
-
-  const handleSearch = (e) => {
-    setSearchTerm(e.target.value);
-  };
-
-  const clearSearch = () => {
-    setSearchTerm('');
-  };
-
-  if (loading) {
-    return (
-      <div className="p-6 bg-gray-50 min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading employee data...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-6 bg-gray-50 min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-red-500 text-xl mb-4">Error Loading Employee Report</div>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button 
-            onClick={fetchData}
-            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
+  ];
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      {/* Action Form Modal */}
-      
+    <div className="space-y-6 page-content p-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-800">HR Dashboard Overview</h1>
+        <div className="flex items-center space-x-2 text-sm text-gray-600">
+          <Activity size={16} />
+          <span>Last updated: {new Date().toLocaleTimeString()}</span>
+        </div>
+      </div>
 
-      {/* Joining Form Modal */}
-      {showJoiningForm && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 my-8">
-            <div className="px-6 py-4 border-b">
-              <h3 className="text-lg font-semibold text-gray-900">
-                New Employee Joining Form
-              </h3>
-              <p className="text-sm text-gray-500 mt-1">
-                Employee ID and S.No. will be generated automatically
+      {/* Summary Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-gradient-to-br from-blue-50 to-white rounded-xl shadow-lg border border-blue-100 p-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm text-gray-600 font-medium">Total Employees</p>
+              <h3 className="text-3xl font-bold text-gray-800 mt-2">{totalEmployee}</h3>
+              <div className="mt-2 text-xs text-gray-600 space-y-1">
+                <div className="flex justify-between items-center">
+                  <span className="flex items-center">
+                    <div className="w-2 h-2 rounded-full bg-blue-500 mr-1"></div>
+                    <span>LEAVING Sheet:</span>
+                  </span>
+                  <span className="font-medium">{totalEmployee - siesEmployeeCount}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="flex items-center">
+                    <div className="w-2 h-2 rounded-full bg-purple-500 mr-1"></div>
+                    <span>SIES Active:</span>
+                  </span>
+                  <span className="font-medium text-purple-600">{siesEmployeeCount}</span>
+                </div>
+              </div>
+            </div>
+            <div className="p-3 rounded-full bg-blue-100">
+              <Users size={24} className="text-blue-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-green-50 to-white rounded-xl shadow-lg border border-green-100 p-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm text-gray-600 font-medium">Active Employees</p>
+              <h3 className="text-3xl font-bold text-gray-800 mt-2">{activeEmployee}</h3>
+              <p className="text-xs text-gray-500 mt-1">
+                From JOINING sheet (Status ≠ "Leaved")
               </p>
             </div>
-            
-            <form onSubmit={handleAddEmployee}>
-              <div className="px-6 py-4 max-h-[70vh] overflow-y-auto">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Name Of The Employee *
-                    </label>
-                    <input
-                      type="text"
-                      name="name"
-                      value={newEmployee.name}
-                      onChange={handleNewEmployeeChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Designation *
-                    </label>
-                    <input
-                      type="text"
-                      name="designation"
-                      value={newEmployee.designation}
-                      onChange={handleNewEmployeeChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Salary (INR)
-                    </label>
-                    <input
-                      type="number"
-                      name="salary"
-                      value={newEmployee.salary}
-                      onChange={handleNewEmployeeChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Aadhaar Card No.
-                    </label>
-                    <input
-                      type="text"
-                      name="aadhaarCardNo"
-                      value={newEmployee.aadhaarCardNo}
-                      onChange={handleNewEmployeeChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                      maxLength="12"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      PAN Card No.
-                    </label>
-                    <input
-                      type="text"
-                      name="panCardNo"
-                      value={newEmployee.panCardNo}
-                      onChange={handleNewEmployeeChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                      maxLength="10"
-                      style={{ textTransform: 'uppercase' }}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Mobile No.
-                    </label>
-                    <input
-                      type="tel"
-                      name="mobileNo"
-                      value={newEmployee.mobileNo}
-                      onChange={handleNewEmployeeChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                      maxLength="10"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Join Date *
-                    </label>
-                    <input
-                      type="date"
-                      name="joinDate"
-                      value={newEmployee.joinDate}
-                      onChange={handleNewEmployeeChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                      required
-                    />
-                  </div>
-                  
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Address
-                    </label>
-                    <textarea
-                      name="address"
-                      value={newEmployee.address}
-                      onChange={handleNewEmployeeChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                      rows="3"
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="px-6 py-4 border-t bg-gray-50 rounded-b-lg">
-                <div className="flex justify-end space-x-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowJoiningForm(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-green-500 text-white rounded-md text-sm font-medium hover:bg-green-600"
-                  >
-                    Add Employee
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-6 sticky top-0 bg-gray-50 z-10 py-2">
-          <h1 className="text-2xl font-bold text-gray-900">SIES Employees</h1>
-          <div className="flex items-center space-x-4">
-            {/* Search Input */}
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-              <input
-                type="text"
-                placeholder="Search by name, ID, or designation..."
-                value={searchTerm}
-                onChange={handleSearch}
-                className="pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64"
-              />
-              {searchTerm && (
-                <button
-                  onClick={clearSearch}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                >
-                  <svg className="h-4 w-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
+            <div className="p-3 rounded-full bg-green-100">
+              <UserCheck size={24} className="text-green-600" />
             </div>
-            
-            <button 
-              onClick={() => setShowJoiningForm(true)}
-              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 flex items-center"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              New Joining
-            </button>
-            
-            <button 
-              onClick={fetchData}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Refresh
-            </button>
           </div>
         </div>
 
-        {/* Search Results Info */}
-        {searchTerm && (
-          <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-700">
-              Showing {filteredData.length} result{filteredData.length !== 1 ? 's' : ''} for "{searchTerm}"
-              {filteredData.length === 0 && ' - No employees found'}
+        <div className="bg-gradient-to-br from-amber-50 to-white rounded-xl shadow-lg border border-amber-100 p-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm text-gray-600 font-medium">On Resigned</p>
+              <h3 className="text-3xl font-bold text-gray-800 mt-2">{leftEmployee}</h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Total from LEAVING sheet
+              </p>
+            </div>
+            <div className="p-3 rounded-full bg-amber-100">
+              <Clock size={24} className="text-amber-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-red-50 to-white rounded-xl shadow-lg border border-red-100 p-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm text-gray-600 font-medium">Left This Month</p>
+              <h3 className="text-3xl font-bold text-gray-800 mt-2">{leaveThisMonth}</h3>
+              <p className="text-xs text-gray-500 mt-1">
+                From LEAVING sheet current month
+              </p>
+            </div>
+            <div className="p-3 rounded-full bg-red-100">
+              <UserX size={24} className="text-red-600" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Pending Tasks Section */}
+      <div className="bg-white rounded-xl shadow-lg border p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-bold text-gray-800 flex items-center">
+            <AlertCircle size={20} className="mr-2 text-amber-500" />
+            Pending Tasks Overview
+          </h2>
+          <div className="text-sm text-gray-500">
+            Total Pending: {pendingCards.reduce((sum, card) => sum + card.count, 0)}
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          {pendingCards.map((card, index) => (
+            <div 
+              key={index}
+              className="bg-gray-50 hover:bg-gray-100 rounded-lg p-4 transition-all duration-200 border border-gray-200 cursor-pointer hover:shadow-md"
+              onClick={() => window.location.href = card.path}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className={`p-2 rounded-lg ${card.color} bg-opacity-10`}>
+                  <card.icon size={18} className={card.textColor} />
+                </div>
+                <span className={`text-xs font-semibold px-2 py-1 rounded-full ${card.color} bg-opacity-20 ${card.textColor}`}>
+                  {card.count}
+                </span>
+              </div>
+              <h3 className="text-sm font-medium text-gray-700 mb-1">{card.title}</h3>
+              <p className="text-xs text-gray-500">Requires attention</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Gender Distribution */}
+        <div className="bg-white rounded-xl shadow-lg border p-6">
+          <h2 className="text-lg font-bold text-gray-800 mb-6 flex items-center">
+            <Users size={20} className="mr-2" />
+            Gender Distribution
+          </h2>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={genderDistributionData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {genderDistributionData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(value) => [`${value} employees`, 'Count']}
+                  contentStyle={{
+                    backgroundColor: 'white',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    color: '#374151'
+                  }}
+                />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-4 text-center">
+            <p className="text-sm text-gray-600">
+              Female Ratio: <span className="font-bold text-pink-600">{femaleRatio}%</span>
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              From JOINING sheet Gender column (K)
             </p>
           </div>
-        )}
-        
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto" style={{ maxHeight: 'calc(100vh - 180px)' }}>
-            <table className="min-w-full">
-              <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0">S.No.</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0">Employee ID</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0">Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0">Designation</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0">Salary</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0">Aadhaar Card No.</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0">PAN Card No.</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0">Address</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0">Join Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0">Mobile No.</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0">Delete</th>                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredData.length > 0 ? (
-                  filteredData.map((employee, index) => (
-                    <tr key={employee.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50 hover:bg-gray-100'}>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-center">
-                        {employee.serialNo}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-blue-600">
-                        {employee.employeeId}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-8 w-8">
-                            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-medium text-blue-600">
-                              {employee.avatar}
-                            </div>
-                          </div>
-                          <div className="ml-3">
-                            <div className="text-sm font-medium text-gray-900">{employee.name}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {employee.designation}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <CurrencyDisplay value={employee.salary} />
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-mono">
-                        {formatAadhaarNumber(employee.aadhaarCardNo)}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-mono">
-                        {employee.panCardNo || '-'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900 max-w-xs">
-                        <div className="truncate" title={employee.address}>
-                          {employee.address}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {employee.joinDate || '-'}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-mono">
-                        {formatMobileNumber(employee.mobileNo)}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${employee.status === 'Relieved' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-                          {employee.status || 'Active'}
-                        </span>
-                      </td>
-                     <td className="px-4 py-3 whitespace-nowrap text-sm">
-  <button
-    onClick={() => handleDeleteClick(employee)}
-    className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm font-medium"
-  >
-    Delete
-  </button>
-</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="12" className="px-6 py-4 text-center text-gray-500">
-                      {searchTerm ? 'No employees found matching your search' : 'No employee data available'}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+        </div>
+
+        {/* Department-wise Employee Count */}
+        <div className="bg-white rounded-xl shadow-lg border p-6">
+          <h2 className="text-lg font-bold text-gray-800 mb-6 flex items-center">
+            <Building size={20} className="mr-2" />
+            Department-wise Employee Count
+          </h2>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={departmentData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
+                <XAxis dataKey="department" stroke="#374151" angle={-45} textAnchor="end" height={60} />
+                <YAxis stroke="#374151" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'white',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    color: '#374151'
+                  }}
+                />
+                <Bar dataKey="employees" name="Employees">
+                  {departmentData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={index % 3 === 0 ? '#EF4444' : index % 3 === 1 ? '#10B981' : '#3B82F6'}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Summary */}
-        <div className="mt-4 text-sm text-gray-600">
-          Total Employees: {filteredData.length}
-          {searchTerm && ` (Filtered from ${employeeData.length} total employees)`}
-          {filteredData.length > 0 && (
-            <>
-              {' • '}
-              Active: {filteredData.filter(e => e.status !== 'Relieved').length}
-              {' • '}
-              Relieved: {filteredData.filter(e => e.status === 'Relieved').length}
-            </>
+        {/* Leave Status Distribution */}
+        <div className="bg-white rounded-xl shadow-lg border p-6">
+          <h2 className="text-lg font-bold text-gray-800 mb-6 flex items-center">
+            <FileText size={20} className="mr-2" />
+            Leave Status Distribution
+          </h2>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={leaveStatusData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="count"
+                >
+                  {leaveStatusData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={getStatusColor(entry.status)} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'white',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    color: '#374151'
+                  }}
+                />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* SIES vs Regular Employees */}
+        <div className="bg-white rounded-xl shadow-lg border p-6">
+          <h2 className="text-lg font-bold text-gray-800 mb-6 flex items-center">
+            <Shield size={20} className="mr-2" />
+            SIES vs Regular Employees
+          </h2>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={[
+                    { 
+                      name: 'Regular Employees', 
+                      value: totalEmployee - siesEmployeeCount, 
+                      color: '#3B82F6' 
+                    },
+                    { 
+                      name: 'SIES Employees', 
+                      value: siesEmployeeCount, 
+                      color: '#8B5CF6' 
+                    }
+                  ]}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {[
+                    { name: 'Regular Employees', value: totalEmployee - siesEmployeeCount, color: '#3B82F6' },
+                    { name: 'SIES Employees', value: siesEmployeeCount, color: '#8B5CF6' }
+                  ].map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(value) => [`${value} employees`, 'Count']}
+                  contentStyle={{
+                    backgroundColor: 'white',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    color: '#374151'
+                  }}
+                />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-4 text-center">
+            <p className="text-sm text-gray-600">
+              SIES Employees: <span className="font-bold text-purple-600">{siesEmployeeCount}</span> 
+              {' '}({totalEmployee > 0 ? ((siesEmployeeCount / totalEmployee) * 100).toFixed(1) : 0}% of total)
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Additional Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Attendance Trend */}
+        <div className="bg-white rounded-xl shadow-lg border p-6">
+          <h2 className="text-lg font-bold text-gray-800 mb-6 flex items-center">
+            <Activity size={20} className="mr-2" />
+            Attendance Trend
+          </h2>
+          <div className="h-60">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={attendanceTrendData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
+                <XAxis dataKey="month" stroke="#374151" />
+                <YAxis stroke="#374151" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'white',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    color: '#374151'
+                  }}
+                />
+                <Legend />
+                <Line type="monotone" dataKey="present" stroke="#10B981" strokeWidth={2} dot={{ r: 4 }} />
+                <Line type="monotone" dataKey="absent" stroke="#EF4444" strokeWidth={2} dot={{ r: 4 }} />
+                <Line type="monotone" dataKey="late" stroke="#F59E0B" strokeWidth={2} dot={{ r: 4 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Key Metrics */}
+        <div className="bg-white rounded-xl shadow-lg border p-6">
+          <h2 className="text-lg font-bold text-gray-800 mb-6">Key HR Metrics</h2>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+              <div>
+                <p className="text-sm text-gray-600">Attendance Rate</p>
+                <h3 className="text-2xl font-bold text-gray-800">{attendanceRate}%</h3>
+              </div>
+              <div className="p-2 rounded-full bg-blue-100">
+                <CheckCircle size={20} className="text-blue-600" />
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+              <div>
+                <p className="text-sm text-gray-600">Avg Employee Tenure</p>
+                <h3 className="text-2xl font-bold text-gray-800">{averageTenure} years</h3>
+              </div>
+              <div className="p-2 rounded-full bg-green-100">
+                <Clock size={20} className="text-green-600" />
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg">
+              <div>
+                <p className="text-sm text-gray-600">Turnover Rate</p>
+                <h3 className="text-2xl font-bold text-gray-800">{turnoverRate}%</h3>
+              </div>
+              <div className="p-2 rounded-full bg-red-100">
+                <TrendingUp size={20} className="text-red-600" />
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between p-4 bg-purple-50 rounded-lg">
+              <div>
+                <p className="text-sm text-gray-600">SIES Employees</p>
+                <h3 className="text-2xl font-bold text-gray-800">{siesEmployeeCount}</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {totalEmployee > 0 ? 
+                    `${((siesEmployeeCount / totalEmployee) * 100).toFixed(1)}% of total` 
+                    : '0% of total'
+                  }
+                </p>
+              </div>
+              <div className="p-2 rounded-full bg-purple-100">
+                <Shield size={20} className="text-purple-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Designation-wise Employee Count */}
+        <div className="bg-white rounded-xl shadow-lg border p-6">
+          <h2 className="text-lg font-bold text-gray-800 mb-6">Top Designations</h2>
+          <div className="space-y-3 max-h-60 overflow-y-auto">
+            {designationData.slice(0, 5).map((item, index) => (
+              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center">
+                  <div className={`w-3 h-3 rounded-full mr-3 ${index % 3 === 0 ? 'bg-blue-500' : index % 3 === 1 ? 'bg-green-500' : 'bg-purple-500'}`} />
+                  <span className="text-sm font-medium text-gray-700">{item.designation}</span>
+                </div>
+                <span className="text-lg font-bold text-gray-800">{item.employees}</span>
+              </div>
+            ))}
+          </div>
+          {designationData.length > 5 && (
+            <div className="mt-4 text-center">
+              <button className="text-sm text-blue-600 hover:text-blue-800">
+                View all {designationData.length} designations
+              </button>
+            </div>
           )}
+        </div>
+      </div>
+
+      {/* Designation-wise Employee Count Full Chart */}
+      <div className="bg-white rounded-xl shadow-lg border p-6">
+        <h2 className="text-lg font-bold text-gray-800 mb-6 flex items-center">
+          <UserPlus size={20} className="mr-2" />
+          Designation-wise Employee Count
+        </h2>
+        <div className="h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={designationData.slice(0, 10)}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
+              <XAxis dataKey="designation" stroke="#374151" angle={-45} textAnchor="end" height={80} />
+              <YAxis stroke="#374151" />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'white',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  color: '#374151'
+                }}
+              />
+              <Bar dataKey="employees" name="Employees">
+                {designationData.slice(0, 10).map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={index % 3 === 0 ? '#EF4444' : index % 3 === 1 ? '#10B981' : '#3B82F6'}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
     </div>
   );
 };
 
-export default EmployeesReport;
+export default Dashboard;

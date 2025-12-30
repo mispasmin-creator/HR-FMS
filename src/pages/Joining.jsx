@@ -490,50 +490,54 @@ const Joining = () => {
   };
 
   const postToJoiningSheet = async (rowData) => {
-    const URL = 'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec';
+  const URL = 'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec';
 
-    try {
-      console.log('Attempting to post:', {
-        sheetName: 'JOINING',
-        rowData: rowData
-      });
+  try {
+    console.log('Attempting to post to JOINING sheet:', {
+      sheetName: 'JOINING',
+      rowDataLength: rowData.length,
+      timestamp: rowData[0],
+      dateOfJoining: rowData[4],
+      dob: rowData[9]
+    });
 
-      const params = new URLSearchParams();
-      params.append('sheetName', 'JOINING');
-      params.append('action', 'insert');
-      params.append('rowData', JSON.stringify(rowData));
+    const params = new URLSearchParams();
+    params.append('sheetName', 'JOINING');
+    params.append('action', 'insert');
+    params.append('rowData', JSON.stringify(rowData));
 
-      const response = await fetch(URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: params,
-      });
+    const response = await fetch(URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params,
+    });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
-      const data = await response.json();
-      console.log('Server response:', data);
-
-      if (!data.success) {
-        throw new Error(data.error || 'Server returned unsuccessful response');
-      }
-
-      return data;
-    } catch (error) {
-      console.error('Full error details:', {
-        error: error.message,
-        stack: error.stack,
-        rowData: rowData,
-        timestamp: new Date().toISOString()
-      });
-      throw new Error(`Failed to update sheet: ${error.message}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
     }
-  };
+
+    const data = await response.json();
+    console.log('Server response:', data);
+
+    if (!data.success) {
+      throw new Error(data.error || 'Server returned unsuccessful response');
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Full error details:', {
+      error: error.message,
+      stack: error.stack,
+      rowData: rowData.slice(0, 30), // Log first 30 columns
+      timestamp: new Date().toISOString()
+    });
+    throw new Error(`Failed to update sheet: ${error.message}`);
+  }
+};
+
 
   const uploadFileToDrive = async (file, folderId = '1Rb4DIzbZWSVyL5s_z4d0ntk0iM-JZWBq') => {
     try {
@@ -643,7 +647,13 @@ const handleJoiningSubmit = async (e) => {
     const uploadPromises = {};
     const fileFields = [
       'aadharFrontPhoto',
+      'aadharBackPhoto',
+      'panCard',
+      'candidatePhoto',
       'bankPassbookPhoto',
+      'qualificationPhoto',
+      'salarySlip',
+      'resumeCopy',
       'offerLetter',
       'incrementLetter',
       'paySlip',
@@ -674,97 +684,221 @@ const handleJoiningSubmit = async (e) => {
       fileUrls[field] = uploadedUrls[index];
     });
 
-    const formatDateForStorage = (dateString) => {
+    // Helper function to format dates for Google Sheets (dd/mm/yyyy format)
+    const formatDateForSheet = (dateString) => {
       if (!dateString) return '';
-
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return dateString;
-
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const year = date.getFullYear();
-
-      return `${month}/${day}/${year}`;
-    };
-
-    // Format DOB for storage (mm/dd/yyyy)
-    const formatDOBForStorage = (dateString) => {
-      if (!dateString) return '';
-
-      // If it's in dd/mm/yyyy format, convert to mm/dd/yyyy
+      
+      // If it's already in dd/mm/yyyy format, validate and return
       if (typeof dateString === 'string' && dateString.includes('/')) {
         const parts = dateString.split('/');
         if (parts.length === 3) {
-          return `${parts[1]}/${parts[0]}/${parts[2]}`;
+          const day = parseInt(parts[0]);
+          const month = parseInt(parts[1]);
+          const year = parseInt(parts[2]);
+          
+          // If it's valid dd/mm/yyyy (day > 12 suggests it's dd/mm/yyyy)
+          if (day > 0 && day <= 31 && month > 0 && month <= 12) {
+            // Pad single digits
+            const paddedDay = String(day).padStart(2, '0');
+            const paddedMonth = String(month).padStart(2, '0');
+            return `${paddedDay}/${paddedMonth}/${year}`;
+          }
         }
       }
+      
+      // If it's in YYYY-MM-DD format (from HTML date input)
+      if (typeof dateString === 'string' && dateString.includes('-')) {
+        const parts = dateString.split('-');
+        if (parts.length === 3) {
+          return `${parts[2]}/${parts[1]}/${parts[0]}`; // Convert to dd/mm/yyyy
+        }
+      }
+      
+      // Try to parse as Date object
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return dateString; // Return original if can't parse
+      }
+      
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      
+      return `${day}/${month}/${year}`;
+    };
 
-      // For other cases, try to parse as Date object
-      let date = new Date(dateString);
+    // Helper function to format DOB for Google Sheets
+    const formatDOBForSheet = (dateString) => {
+      if (!dateString) return '';
+      
+      // If it's already in dd/mm/yyyy format
+      if (typeof dateString === 'string' && dateString.includes('/')) {
+        const parts = dateString.split('/');
+        if (parts.length === 3) {
+          const day = parseInt(parts[0]);
+          const month = parseInt(parts[1]);
+          
+          // Check if it's dd/mm/yyyy format (day > 12)
+          if (day > 12) {
+            return dateString; // Already in dd/mm/yyyy
+          }
+          // If day <= 12, might be mm/dd/yyyy, so convert to dd/mm/yyyy
+          else if (month > 12) {
+            return `${parts[1]}/${parts[0]}/${parts[2]}`;
+          }
+        }
+        return dateString;
+      }
+      
+      // Try to parse
+      const date = new Date(dateString);
       if (isNaN(date.getTime())) {
         return dateString;
       }
-
-      const month = String(date.getMonth() + 1).padStart(2, '0');
+      
       const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
       const year = date.getFullYear();
-
-      return `${month}/${day}/${year}`;
+      
+      return `${day}/${month}/${year}`;
     };
+
+    // Create timestamp in dd/mm/yyyy hh:mm:ss format
+    const now = new Date();
+    const timestampDay = String(now.getDate()).padStart(2, '0');
+    const timestampMonth = String(now.getMonth() + 1).padStart(2, '0');
+    const timestampYear = now.getFullYear();
+    const timestampHours = String(now.getHours()).padStart(2, '0');
+    const timestampMinutes = String(now.getMinutes()).padStart(2, '0');
+    const timestampSeconds = String(now.getSeconds()).padStart(2, '0');
+    
+    const formattedTimestamp = `${timestampDay}/${timestampMonth}/${timestampYear} ${timestampHours}:${timestampMinutes}:${timestampSeconds}`;
 
     // Create an array with all column values in order
     const rowData = [];
 
-    // Existing columns A to AA (columns 0 to 26)
-    const now = new Date();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const year = now.getFullYear();
+    // Initialize all columns as empty strings
+    for (let i = 0; i < 120; i++) { // Adjust based on your total columns
+      rowData[i] = '';
+    }
+
+    // Populate the data in correct columns (0-based indexing)
+    // Column A: Timestamp (index 0)
+    rowData[0] = formattedTimestamp;
     
-    rowData[0] = `${month}/${day}/${year} ${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`; // Column A: Timestamp
-    rowData[1] = serialNumber;                    // Column B: Joining ID
-    rowData[2] = selectedItem.candidateName;   // Column C: Name As Per Aadhar
-    rowData[3] = joiningFormData.fatherName;   // Column D: Father Name
-    rowData[4] = formatDateForStorage(joiningFormData.dateOfJoining); // Column E: Date Of Joining
-    rowData[5] = selectedItem.designation || selectedItem.applyingForPost; // Column F: Designation
-    rowData[6] = fileUrls.aadharFrontPhoto || '';    // Column G: Aadhar card
-    rowData[7] = selectedItem.candidatePhoto;  // Column H: Candidate Photo
-    rowData[8] = selectedItem.presentAddress;  // Column I: Current Address
-    rowData[9] = formatDOBForStorage(selectedItem.candidateDOB); // Column J: Date Of Birth
-    rowData[10] = joiningFormData.gender;      // Column K: Gender
-    rowData[11] = selectedItem.candidatePhone; // Column L: Mobile No.
-    rowData[12] = joiningFormData.familyMobileNo; // Column M: Family Mobile Number
-    rowData[13] = joiningFormData.relationshipWithFamily; // Column N: Relationship With Family
-    rowData[14] = joiningFormData.currentBankAc; // Column O: Current Account No
-    rowData[15] = joiningFormData.ifscCode;    // Column P: IFSC Code
-    rowData[16] = joiningFormData.branchName;  // Column Q: Branch Name
-    rowData[17] = fileUrls.bankPassbookPhoto || '';  // Column R: Photo Of Front Bank Passbook
-    rowData[18] = selectedItem.candidateEmail; // Column S: Candidate Email
-    rowData[19] = joiningFormData.highestQualification; // Column T: Highest Qualification
-    rowData[20] = selectedItem.department || '';  // Column U: Department
-    rowData[21] = selectedItem.aadharNo;       // Column V: Aadhar Number
-    rowData[22] = selectedItem.candidateResume; // Column W: Candidate Resume
-    rowData[23] = ''; // Column X: Date
+    // Column B: Joining ID (index 1)
+    rowData[1] = serialNumber;
     
-    // NEW COLUMNS CF to CK (columns 83 to 88 in 0-based indexing)
-    rowData[83] = joiningFormData.previousCompanyName; // Column CF - Previous Company Name
-    rowData[84] = joiningFormData.previousCompanyAddress; // Column CG - Previous Company Address  
-    rowData[85] = fileUrls.offerLetter || ""; // Column CH - Offer Letter
-    rowData[86] = fileUrls.incrementLetter || ""; // Column CI - Increment Letter
-    rowData[87] = fileUrls.paySlip || ""; // Column CJ - Pay Slip
-    rowData[88] = fileUrls.resignationLetter || ""; // Column CK - Resignation Letter
-    rowData[89] = joiningFormData.enquiryNo; // Column CL - Enquiry Number
-    rowData[92] = joiningFormData.bloodGroup; // Column CO (index 92)
-    rowData[93] = joiningFormData.identificationMarks; // Column CP (index 93)
+    // Column C: Name As Per Aadhar (index 2)
+    rowData[2] = selectedItem.candidateName || '';
+    
+    // Column D: Father Name (index 3)
+    rowData[3] = joiningFormData.fatherName || '';
+    
+    // Column E: Date Of Joining (index 4) - Format as dd/mm/yyyy
+    rowData[4] = formatDateForSheet(joiningFormData.dateOfJoining) || '';
+    
+    // Column F: Designation (index 5)
+    rowData[5] = selectedItem.designation || selectedItem.applyingForPost || '';
+    
+    // Column G: Aadhar Front Photo (index 6)
+    rowData[6] = fileUrls.aadharFrontPhoto || '';
+    
+    // Column H: Candidate Photo (index 7)
+    rowData[7] = selectedItem.candidatePhoto || fileUrls.candidatePhoto || '';
+    
+    // Column I: Current Address (index 8)
+    rowData[8] = selectedItem.presentAddress || '';
+    
+    // Column J: Date Of Birth (index 9) - Format as dd/mm/yyyy
+    rowData[9] = formatDOBForSheet(selectedItem.candidateDOB) || '';
+    
+    // Column K: Gender (index 10)
+    rowData[10] = joiningFormData.gender || '';
+    
+    // Column L: Mobile No (index 11)
+    rowData[11] = selectedItem.candidatePhone || '';
+    
+    // Column M: Family Mobile Number (index 12)
+    rowData[12] = joiningFormData.familyMobileNo || '';
+    
+    // Column N: Relationship With Family (index 13)
+    rowData[13] = joiningFormData.relationshipWithFamily || '';
+    
+    // Column O: Current Account No (index 14)
+    rowData[14] = joiningFormData.currentBankAc || '';
+    
+    // Column P: IFSC Code (index 15)
+    rowData[15] = joiningFormData.ifscCode || '';
+    
+    // Column Q: Branch Name (index 16)
+    rowData[16] = joiningFormData.branchName || '';
+    
+    // Column R: Photo Of Front Bank Passbook (index 17)
+    rowData[17] = fileUrls.bankPassbookPhoto || '';
+    
+    // Column S: Candidate Email (index 18)
+    rowData[18] = selectedItem.candidateEmail || '';
+    
+    // Column T: Highest Qualification (index 19)
+    rowData[19] = joiningFormData.highestQualification || '';
+    
+    // Column U: Department (index 20)
+    rowData[20] = selectedItem.department || '';
+    
+    // Column V: Aadhar Number (index 21)
+    rowData[21] = selectedItem.aadharNo || joiningFormData.aadharCardNo || '';
+    
+    // Column W: Candidate Resume (index 22)
+    rowData[22] = selectedItem.candidateResume || fileUrls.resumeCopy || '';
+    
+    // Column X: Date (index 23) - Empty for now
+    
+    // NEW COLUMNS for Previous Company Details
+    // Column CF: Previous Company Name (index 83)
+    rowData[83] = joiningFormData.previousCompanyName || selectedItem.previousCompany || '';
+    
+    // Column CG: Previous Company Address (index 84)
+    rowData[84] = joiningFormData.previousCompanyAddress || '';
+    
+    // Column CH: Offer Letter (index 85)
+    rowData[85] = fileUrls.offerLetter || '';
+    
+    // Column CI: Increment Letter (index 86)
+    rowData[86] = fileUrls.incrementLetter || '';
+    
+    // Column CJ: Pay Slip (index 87)
+    rowData[87] = fileUrls.paySlip || '';
+    
+    // Column CK: Resignation Letter (index 88)
+    rowData[88] = fileUrls.resignationLetter || '';
+    
+    // Column CL: Enquiry Number (index 89)
+    rowData[89] = joiningFormData.enquiryNo || selectedItem.candidateEnquiryNo || '';
+    
+    // Column CO: Blood Group (index 92)
+    rowData[92] = joiningFormData.bloodGroup || '';
+    
+    // Column CP: Identification Marks (index 93)
+    rowData[93] = joiningFormData.identificationMarks || '';
+
+    // Log the data for debugging
+    console.log("Submitting row data to JOINING sheet:", {
+      timestamp: rowData[0],
+      dateOfJoining: rowData[4],
+      dob: rowData[9],
+      enquiryNo: rowData[89]
+    });
 
     await postToJoiningSheet(rowData);
 
-    // COMMENTED OUT: This line was updating ENQUIRY sheet
-    // await updateEnquirySheet(selectedItem.candidateEnquiryNo, formattedTimestamp);
+    console.log("Joining Form Data submitted successfully!");
+    console.log("Joining ID:", serialNumber);
+    console.log("Candidate Name:", selectedItem.candidateName);
+    console.log("Date of Joining:", rowData[4]);
+    console.log("DOB:", rowData[9]);
 
-    console.log("Joining Form Data submitted:", rowData);
-
-    toast.success('Employee added successfully!');
+    toast.success('Employee added successfully! Joining ID: ' + serialNumber);
     setShowJoiningModal(false);
     setSelectedItem(null);
     fetchJoiningData();
@@ -775,6 +909,7 @@ const handleJoiningSubmit = async (e) => {
     setSubmitting(false);
   }
 };
+
 
   const filteredJoiningData = joiningData.filter(item => {
     const matchesSearch = item.candidateName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -793,7 +928,7 @@ const handleJoiningSubmit = async (e) => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-800">Joining Management </h1>
+        <h1 className="text-2xl font-bold text-gray-800">Joining Management  </h1>
       </div>
 
       {/* Filter and Search */}
