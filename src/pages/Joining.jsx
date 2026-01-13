@@ -16,6 +16,10 @@ const Joining = () => {
   const [followUpData, setFollowUpData] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+
+ const [forceRefresh, setForceRefresh] = useState(false);
+const [retryCount, setRetryCount] = useState(0);
+const maxRetries = 3;
   const [shareFormData, setShareFormData] = useState({
     recipientName: '',
     recipientEmail: '',
@@ -152,24 +156,38 @@ const Joining = () => {
     }));
   };
 
-const fetchJoiningData = async () => {
+const fetchJoiningData = async (isRetry = false) => {
+  if (isRetry) {
+    setRetryCount(prev => prev + 1);
+  } else {
+    setRetryCount(0);
+  }
+  
   setLoading(true);
   setTableLoading(true);
   setError(null);
 
   try {
+    // Clear cache if force refresh is requested
+    if (forceRefresh) {
+      localStorage.removeItem('joiningDataCache');
+      localStorage.removeItem('joiningDataTimestamp');
+      setForceRefresh(false);
+    }
+
     // Cache key for storing data
     const cacheKey = 'joiningDataCache';
     const cacheTimestampKey = 'joiningDataTimestamp';
-    const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+    const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache
 
     // Check if we have cached data that's still valid
     const cachedData = localStorage.getItem(cacheKey);
     const cachedTimestamp = localStorage.getItem(cacheTimestampKey);
     const now = Date.now();
 
-    if (cachedData && cachedTimestamp && (now - parseInt(cachedTimestamp)) < CACHE_DURATION) {
+    if (cachedData && cachedTimestamp && (now - parseInt(cachedTimestamp)) < CACHE_DURATION && !isRetry) {
       const { joiningData: cachedJoiningData, historyData: cachedHistoryData } = JSON.parse(cachedData);
+      console.log("Using cached data - Pending:", cachedJoiningData.length, "History:", cachedHistoryData.length);
       setJoiningData(cachedJoiningData);
       setHistoryData(cachedHistoryData);
       setLoading(false);
@@ -177,191 +195,136 @@ const fetchJoiningData = async () => {
       return;
     }
 
-    // Fetch data with timeout
-    const fetchWithTimeout = async (url, timeout = 15000) => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
-      
-      try {
-        const response = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        return response.json();
-      } catch (error) {
-        clearTimeout(timeoutId);
-        throw error;
-      }
-    };
-
+    // Fetch data from multiple sheets
     const baseUrl = "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec";
     
-    const fetchPromises = [
-      fetchWithTimeout(`${baseUrl}?sheet=ENQUIRY&action=fetch`),
-      fetchWithTimeout(`${baseUrl}?sheet=Follow%20-%20Up&action=fetch`),
-      fetchWithTimeout(`${baseUrl}?sheet=JOINING&action=fetch`)
-    ];
-
-    const results = await Promise.allSettled(fetchPromises);
+    const [enquiryResponse, followUpResponse, joiningResponse] = await Promise.all([
+      fetch(`${baseUrl}?sheet=ENQUIRY&action=fetch`).then(r => r.json()),
+      fetch(`${baseUrl}?sheet=Follow%20-%20Up&action=fetch`).then(r => r.json()),
+      fetch(`${baseUrl}?sheet=JOINING&action=fetch`).then(r => r.json())
+    ]);
 
     // Process ENQUIRY data
-    const enquiryResult = results[0];
-    if (enquiryResult.status === 'rejected') {
-      throw new Error(`Failed to fetch ENQUIRY data: ${enquiryResult.reason.message}`);
+    if (!enquiryResponse.success) {
+      throw new Error(enquiryResponse.error || "Failed to fetch ENQUIRY data");
     }
 
-    const enquiryData = enquiryResult.value;
-    
-    if (!enquiryData.success || !enquiryData.data || enquiryData.data.length < 7) {
-      throw new Error(enquiryData.error || "Not enough rows in enquiry sheet data");
-    }
+    const enquiryHeaders = enquiryResponse.data[5] || [];
+    const enquiryRows = enquiryResponse.data.slice(6) || [];
 
-    // Create header index map
-    const enquiryHeaders = enquiryData.data[5].map((h) => (h || '').toString().trim());
-    
-    const headerMap = {};
-    const headerNames = [
-      "Timestamp", "Indent Number", "Candidate Enquiry Number", 
-      "Applying For the Post", "Department", "Candidate Name", 
-      "DOB", "Candidate Phone Number", "Candidate Email",
-      "Previous Company Name", "Job Experience", "Last Salary Drawn",
-      "Previous Position", "Reason Of Leaving Previous Company",
-      "Marital Status", "Last Employer Mobile Number", "Candidate Photo",
-      "Reference By", "Present Address", "Aadhar Number"
-    ];
-    
-    headerNames.forEach(name => {
-      const index = enquiryHeaders.findIndex(h => h === name);
-      if (index !== -1) {
-        headerMap[name] = index;
-      } else {
-        console.warn(`Header "${name}" not found in ENQUIRY sheet`);
-      }
-    });
+    // Find column indices with fallback
+    const findColumnIndex = (headerName) => {
+      return enquiryHeaders.findIndex(h => 
+        h && h.toString().trim().toLowerCase() === headerName.toLowerCase()
+      );
+    };
 
-    // Process enquiry data
-    const enquiryDataRows = enquiryData.data.slice(6);
-    const processedEnquiryData = [];
+    const columnIndices = {
+      timestamp: findColumnIndex("Timestamp") !== -1 ? findColumnIndex("Timestamp") : 0,
+      indentNo: findColumnIndex("Indent Number") !== -1 ? findColumnIndex("Indent Number") : 1,
+      enquiryNo: findColumnIndex("Candidate Enquiry Number") !== -1 ? findColumnIndex("Candidate Enquiry Number") : 2,
+      position: findColumnIndex("Applying For the Post") !== -1 ? findColumnIndex("Applying For the Post") : 3,
+      department: findColumnIndex("Department") !== -1 ? findColumnIndex("Department") : 4,
+      name: findColumnIndex("Candidate Name") !== -1 ? findColumnIndex("Candidate Name") : 5,
+      phone: findColumnIndex("Candidate Phone Number") !== -1 ? findColumnIndex("Candidate Phone Number") : 7,
+      email: findColumnIndex("Candidate Email") !== -1 ? findColumnIndex("Candidate Email") : 8,
+      aadhar: findColumnIndex("Aadhar Number") !== -1 ? findColumnIndex("Aadhar Number") : 19,
+      address: findColumnIndex("Present Address") !== -1 ? findColumnIndex("Present Address") : 18
+    };
 
-    for (let i = 0; i < enquiryDataRows.length; i++) {
-      const row = enquiryDataRows[i];
-      processedEnquiryData.push({
-        id: row[0] || `row-${i + 7}`, // Use timestamp or row number
-        indentNo: row[headerMap["Indent Number"]] || "",
-        candidateEnquiryNo: row[headerMap["Candidate Enquiry Number"]] || "",
-        applyingForPost: row[headerMap["Applying For the Post"]] || "",
-        department: row[headerMap["Department"]] || "",
-        candidateName: row[headerMap["Candidate Name"]] || "",
-        candidateDOB: row[headerMap["DOB"]] || "",
-        candidatePhone: row[headerMap["Candidate Phone Number"]] || "",
-        candidateEmail: row[headerMap["Candidate Email"]] || "",
-        previousCompany: row[headerMap["Previous Company Name"]] || "",
-        jobExperience: row[headerMap["Job Experience"]] || "",
-        lastSalary: row[headerMap["Last Salary Drawn"]] || "",
-        previousPosition: row[headerMap["Previous Position"]] || "",
-        reasonForLeaving: row[headerMap["Reason Of Leaving Previous Company"]] || "",
-        maritalStatus: row[headerMap["Marital Status"]] || "",
-        lastEmployerMobile: row[headerMap["Last Employer Mobile Number"]] || "",
+    // Process all enquiry data
+    const allEnquiryData = enquiryRows
+      .filter(row => row && row.length > 0 && row[columnIndices.enquiryNo])
+      .map((row, index) => ({
+        id: `row-${index + 7}`,
+        indentNo: row[columnIndices.indentNo] || "",
+        candidateEnquiryNo: (row[columnIndices.enquiryNo] || "").toString().trim(),
+        applyingForPost: row[columnIndices.position] || "",
+        department: row[columnIndices.department] || "",
+        candidateName: row[columnIndices.name] || "",
+        candidatePhone: row[columnIndices.phone] || "",
+        candidateEmail: row[columnIndices.email] || "",
+        aadharNo: row[columnIndices.aadhar] || "",
+        presentAddress: row[columnIndices.address] || "",
         candidatePhoto: row[16] || "",
         candidateResume: row[19] || "",
-        referenceBy: row[headerMap["Reference By"]] || "",
-        presentAddress: row[headerMap["Present Address"]] || "",
-        aadharNo: row[headerMap["Aadhar Number"]] || "",
-        designation: row[headerMap["Applying For the Post"]] || "",
-        // Debug these columns
-        actualDate: row[26] || "",
         plannedDate: row[27] || "",
-        actualJoiningDate: row[28] || ""
+        actualJoiningDate: row[28] || "",
+        designation: row[columnIndices.position] || ""
+      }))
+      .filter(item => item.candidateEnquiryNo && item.candidateEnquiryNo.trim() !== "");
+
+    console.log(`Total ENQUIRY records: ${allEnquiryData.length}`);
+
+    // Process FOLLOW-UP data to find candidates with "Joining" status
+    const joiningCandidates = new Set();
+    
+    if (followUpResponse.success && followUpResponse.data) {
+      const followUpRows = followUpResponse.data.slice(1) || [];
+      
+      followUpRows.forEach(row => {
+        if (row && row.length >= 4) {
+          const enquiryNo = (row[2] || "").toString().trim();
+          const status = (row[3] || "").toString().trim().toLowerCase();
+          
+          // Check for "joining" status (case-insensitive)
+          if (enquiryNo && status.includes('joining')) {
+            joiningCandidates.add(enquiryNo);
+          }
+        }
       });
+      
+      console.log(`Found ${joiningCandidates.size} candidates marked as 'Joining' in FOLLOW-UP`);
     }
 
-    console.log("Sample enquiry data:", processedEnquiryData.slice(0, 3));
-    console.log("ActualJoiningDate column values:", processedEnquiryData.map(item => item.actualJoiningDate).filter(Boolean));
-
-    // Process FOLLOW-UP data
-    const followUpResult = results[1];
-    
-    if (followUpResult.status === 'fulfilled' && followUpResult.value.success && followUpResult.value.data) {
-      const rawFollowUpData = followUpResult.value.data || followUpResult.value;
-      const followUpRows = Array.isArray(rawFollowUpData[0])
-        ? rawFollowUpData.slice(1)
-        : rawFollowUpData;
-
-      // Create lookup map for follow-up status
-      const followUpMap = new Map();
-      followUpRows.forEach(row => {
-        const enquiryNo = (row[2] || "").toString().trim();
-        const status = (row[3] || "").toString().trim();
-        if (enquiryNo) {
-          followUpMap.set(enquiryNo, status);
-        }
-      });
-
-      console.log("Follow-up map entries:", Array.from(followUpMap.entries()).slice(0, 5));
-
-      // Get candidate enquiry numbers that have "Joining" status in follow-up
-      const joiningCandidates = new Set();
-      followUpMap.forEach((status, enquiryNo) => {
-        if (status.toLowerCase() === 'joining') {
-          joiningCandidates.add(enquiryNo);
-        }
-      });
-
-      console.log("Candidates with 'Joining' status:", Array.from(joiningCandidates));
-
-      // Filter enquiry data to only include candidates with "Joining" status
-      const joiningItems = processedEnquiryData.filter(item => {
-        return joiningCandidates.has(item.candidateEnquiryNo);
-      });
-
-      console.log("Joining items count:", joiningItems.length);
-
-      // IMPORTANT FIX: Get data from JOINING sheet to determine history
-      const joiningResult = results[2];
-      const joinedCandidates = new Set();
+    // Get already joined candidates from JOINING sheet
+    const joinedCandidates = new Set();
+    if (joiningResponse.success && joiningResponse.data) {
+      const joiningRows = joiningResponse.data.slice(1) || [];
       
-      if (joiningResult.status === 'fulfilled' && joiningResult.value.success && joiningResult.value.data) {
-        const joiningData = joiningResult.value.data;
-        const joiningDataRows = joiningData.slice(1); // Skip header row
-        
-        // Extract enquiry numbers from column 89 (0-based index)
-        joiningDataRows.forEach(row => {
+      joiningRows.forEach(row => {
+        if (row && row.length > 89) {
           const enquiryNo = (row[89] || "").toString().trim();
           if (enquiryNo) {
             joinedCandidates.add(enquiryNo);
           }
-        });
-        
-        console.log("Already joined candidates:", Array.from(joinedCandidates));
-      }
-
-      // NEW LOGIC: Separate pending vs history
-      const pendingData = [];
-      const historyData = [];
-
-      joiningItems.forEach(item => {
-        // If candidate has a record in JOINING sheet, they are history
-        if (joinedCandidates.has(item.candidateEnquiryNo)) {
-          historyData.push(item);
-        } else {
-          pendingData.push(item);
         }
       });
+      
+      console.log(`Found ${joinedCandidates.size} already joined candidates`);
+    }
 
-      console.log("Pending count:", pendingData.length);
-      console.log("History count:", historyData.length);
+    // Filter ENQUIRY data to only include candidates with "Joining" status
+    const joiningItems = allEnquiryData.filter(item => 
+      joiningCandidates.has(item.candidateEnquiryNo)
+    );
 
-      // Process history data with JOINING sheet details
-      if (joiningResult.status === 'fulfilled' && joiningResult.value.success && joiningResult.value.data) {
-        const joiningData = joiningResult.value.data;
-        const joiningDataRows = joiningData.slice(1);
-        
-        // Create lookup map for joining details
-        const joiningMap = new Map();
-        joiningDataRows.forEach(row => {
+    console.log(`Total candidates with 'Joining' status: ${joiningItems.length}`);
+
+    // **FIXED: Separate pending vs history correctly**
+    const pendingData = [];
+    const historyData = [];
+
+    joiningItems.forEach(item => {
+      if (joinedCandidates.has(item.candidateEnquiryNo)) {
+        // Already joined - goes to history
+        historyData.push(item);
+      } else {
+        // Not yet joined - goes to pending
+        pendingData.push(item);
+      }
+    });
+
+    console.log(`Final counts - Pending: ${pendingData.length}, History: ${historyData.length}`);
+
+    // Process history data with JOINING details
+    let processedHistoryData = [];
+    if (historyData.length > 0 && joiningResponse.success && joiningResponse.data) {
+      const joiningRows = joiningResponse.data.slice(1);
+      
+      const joiningMap = new Map();
+      joiningRows.forEach(row => {
+        if (row && row.length > 89) {
           const enquiryNo = (row[89] || "").toString().trim();
           if (enquiryNo) {
             joiningMap.set(enquiryNo, {
@@ -373,41 +336,35 @@ const fetchJoiningData = async () => {
               resignationLetter: row[88] || ""
             });
           }
-        });
+        }
+      });
 
-        // Enhance history items with joining data
-        const processedHistoryData = historyData.map(item => {
-          const joiningRecord = joiningMap.get(item.candidateEnquiryNo) || {};
-          return {
-            ...item,
-            ...joiningRecord
-          };
-        });
-
-        setHistoryData(processedHistoryData);
-        setJoiningData(pendingData);
-
-        // Cache the processed data
-        const cacheData = {
-          joiningData: pendingData,
-          historyData: processedHistoryData
-        };
-        localStorage.setItem(cacheKey, JSON.stringify(cacheData));
-        localStorage.setItem(cacheTimestampKey, now.toString());
-      } else {
-        // If JOINING sheet fetch failed
-        setHistoryData([]);
-        setJoiningData(pendingData);
-      }
-
-      // Also set followUpData for reference
-      setFollowUpData(Array.from(followUpMap, ([enquiryNo, status]) => ({ enquiryNo, status })));
-
+      processedHistoryData = historyData.map(item => ({
+        ...item,
+        ...(joiningMap.get(item.candidateEnquiryNo) || {})
+      }));
     } else {
-      console.warn('Follow-up data fetch failed:', followUpResult.reason);
-      // If follow-up data fails, show empty data
-      setJoiningData([]);
-      setHistoryData([]);
+      processedHistoryData = historyData;
+    }
+
+    // Update state
+    setJoiningData(pendingData);
+    setHistoryData(processedHistoryData);
+    setFollowUpData(Array.from(joiningCandidates, enquiryNo => ({ enquiryNo, status: 'Joining' })));
+
+    // Cache the processed data
+    const cacheData = {
+      joiningData: pendingData,
+      historyData: processedHistoryData,
+      timestamp: now
+    };
+    
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+      localStorage.setItem(cacheTimestampKey, now.toString());
+      console.log("Data cached successfully");
+    } catch (cacheError) {
+      console.warn("Failed to cache data:", cacheError);
     }
 
   } catch (error) {
@@ -419,12 +376,19 @@ const fetchJoiningData = async () => {
       const cachedData = localStorage.getItem(cacheKey);
       if (cachedData) {
         const { joiningData: cachedJoiningData, historyData: cachedHistoryData } = JSON.parse(cachedData);
+        console.log("Using expired cache - Pending:", cachedJoiningData.length, "History:", cachedHistoryData.length);
         setJoiningData(cachedJoiningData);
         setHistoryData(cachedHistoryData);
         toast.success('Showing cached data. Some data may be outdated.');
       } else {
         setError(error.message);
         toast.error("Failed to fetch data");
+        
+        // Auto-retry logic
+        if (retryCount < maxRetries) {
+          console.log(`Retrying in 3 seconds... (${retryCount + 1}/${maxRetries})`);
+          setTimeout(() => fetchJoiningData(true), 3000);
+        }
       }
     } catch (cacheError) {
       setError(error.message);
@@ -435,6 +399,44 @@ const fetchJoiningData = async () => {
     setTableLoading(false);
   }
 };
+
+useEffect(() => {
+  let isMounted = true;
+  
+  const initializeData = async () => {
+    if (isMounted) {
+      // Clear any existing cache on first load to ensure fresh data
+      if (!localStorage.getItem('joiningDataCache')) {
+        console.log("First load - clearing cache");
+        localStorage.removeItem('joiningDataCache');
+        localStorage.removeItem('joiningDataTimestamp');
+      }
+      
+      await fetchJoiningData();
+      
+      // Set up polling with exponential backoff
+      let pollCount = 0;
+      const pollInterval = setInterval(() => {
+        if (isMounted) {
+          pollCount++;
+          // Refresh less frequently over time
+          const interval = pollCount < 5 ? 60000 : 300000; // 1 min for first 5, then 5 min
+          if (pollCount % (interval/60000) === 0) {
+            fetchJoiningData();
+          }
+        }
+      }, 60000);
+      
+      return () => clearInterval(pollInterval);
+    }
+  };
+  
+  initializeData();
+  
+  return () => {
+    isMounted = false;
+  };
+}, []);
 
 
 useEffect(() => {

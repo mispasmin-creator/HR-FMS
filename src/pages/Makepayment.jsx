@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Calendar, Filter, CreditCard, ExternalLink, Eye, Download } from 'lucide-react';
+import { Search, Calendar, Filter, CreditCard, ExternalLink, Eye, Download, FileText } from 'lucide-react';
 
 const MakePayment = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -12,8 +12,6 @@ const MakePayment = () => {
   const [filters, setFilters] = useState({
     department: "",
     status: "",
-    employmentType: "",
-    location: "",
   });
 
   const showNotification = (message, type = "success") => {
@@ -24,53 +22,183 @@ const MakePayment = () => {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      setError(null);
       try {
-        // Fetch data from Google Sheets - updated to include payment link column
+        console.log("Fetching data from JOINING sheet...");
         const response = await fetch(
-          "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Payroll&action=fetch"
+          "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
         );
         const data = await response.json();
 
         if (data && data.success && data.data) {
-          const headers = data.data[0];
-          const rows = data.data.slice(1);
+          const headers = data.data[0] || [];
+          const rows = data.data.slice(1) || [];
+          
+          console.log(`Total rows fetched: ${rows.length}`);
+          console.log("Total columns:", headers.length);
+          console.log("First few headers:", headers.slice(0, 10).map((h, i) => `${i}: "${h}"`).join(', '));
+          
+          // Log all headers for debugging
+          console.log("ALL HEADERS:");
+          headers.forEach((header, index) => {
+            console.log(`${index}: ${header}`);
+          });
+          
+          // Based on your sheet structure, let's map the correct indices
+          // IMPORTANT: These are ZERO-BASED indices from the array
+          const columnIndices = {
+            employeeId: 26, // Column AA (index 26)
+            name: 2,        // Column C (index 2)
+            designation: 35, // Column AJ (index 35)
+            leavingDate: 55, // Column BD (index 55)
+            terminationReason: 56, // Column BE (index 56)
+            lastWorkingDate: 57, // Column BF (index 57)
+            amount: 105,    // Column DA (index 105)
+            mobileNo: 11,   // Column L (index 11)
+            bankAccount: 33, // Column AH (index 33)
+            branchName: 16,  // Column Q (index 16)
+            plannedDate: 108, // Column DE (index 108)
+            actualDate: 109, // Column DF (index 109)
+            formLink: 111,   // Column DH (index 111)
+            department: 20,  // Column U (index 20)
+            joiningDate: 4,  // Column E (index 4)
+            email: 18,      // Column S (index 18)
+            aadharNo: 21,   // Column V (index 21)
+            status: 110,     // Column DG (index 110) - Check if this exists
+          };
 
-          // Transform data - assuming payment link is in column R (index 17)
-          const transformedData = rows.map((row) => ({
-            serialNo: row[0] || "",
-            employeeCode: row[1] || "",
-            employeeName: row[2] || "",
-            designation: row[3] || "",
-            daysPresent: row[4] || 0,
-            totalActual: parseFloat(row[5]) || 0,
-            basic: parseFloat(row[6]) || 0,
-            conveyance: parseFloat(row[7]) || 0,
-            hra: parseFloat(row[8]) || 0,
-            medicalAllowance: parseFloat(row[9]) || 0,
-            specialAllowance: parseFloat(row[10]) || 0,
-            otherAllowances: parseFloat(row[11]) || 0,
-            loan: parseFloat(row[12]) || 0,
-            additionalSalary: parseFloat(row[13]) || 0,
-            toBePaidAfterPF: parseFloat(row[14]) || 0,
-            year: row[15] || "",
-            month: row[16] || "",
-            paymentLink: row[17] || "", // Payment link from column R
-            paymentStatus: row[18] || "Pending", // Assuming column S for status
-            transactionId: row[19] || "", // Assuming column T for transaction ID
-          }));
-
-          // Initialize selected payments based on payment status
+          console.log("Using column indices:", columnIndices);
+          
+          // Transform and filter data - FIXED LOGIC
+          const pendingPayments = [];
+          
+          rows.forEach((row, rowIndex) => {
+            try {
+              // Get Planned (DE) and Actual (DF) values
+              const plannedValue = row[columnIndices.plannedDate];
+              const actualValue = row[columnIndices.actualDate];
+              const amountValue = row[columnIndices.amount];
+              const employeeId = row[columnIndices.employeeId];
+              
+              // Debug log for first 5 rows
+              if (rowIndex < 5) {
+                console.log(`Row ${rowIndex + 2}:`, {
+                  employeeId: employeeId,
+                  name: row[columnIndices.name],
+                  planned: plannedValue,
+                  actual: actualValue,
+                  amount: amountValue,
+                  hasPlanned: !!plannedValue && plannedValue.toString().trim() !== "",
+                  hasActual: !!actualValue && actualValue.toString().trim() !== ""
+                });
+              }
+              
+              // Convert to strings and check emptiness
+              const plannedStr = plannedValue ? plannedValue.toString().trim() : "";
+              const actualStr = actualValue ? actualValue.toString().trim() : "";
+              
+              // CRITICAL: Show if Planned has value AND Actual is empty
+              // Check if Planned has any value (not null, not undefined, not empty string)
+              const hasPlannedValue = plannedStr !== "";
+              
+              // Check if Actual is empty (null, undefined, or empty string)
+              const isActualEmpty = actualStr === "";
+              
+              if (hasPlannedValue && isActualEmpty) {
+                // Parse amount
+                let amount = 0;
+                if (amountValue) {
+                  // Extract numbers from the amount string
+                  const amountStr = amountValue.toString().replace(/[^0-9.-]+/g, '');
+                  amount = parseFloat(amountStr) || 0;
+                }
+                
+                // Check if employee has a valid ID
+                const hasEmployeeId = employeeId && employeeId.toString().trim() !== "";
+                
+                if (hasEmployeeId) {
+                  const paymentRecord = {
+                    id: `row-${rowIndex}`,
+                    rowIndex: rowIndex + 2, // +2 because header row is 1 and we want sheet row number
+                    employeeId: employeeId.toString().trim(),
+                    name: (row[columnIndices.name] || "").toString().trim(),
+                    designation: (row[columnIndices.designation] || "").toString().trim(),
+                    leavingDate: (row[columnIndices.leavingDate] || "").toString().trim(),
+                    terminationReason: (row[columnIndices.terminationReason] || "").toString().trim(),
+                    lastWorkingDate: (row[columnIndices.lastWorkingDate] || "").toString().trim(),
+                    amount: amount,
+                    mobileNo: (row[columnIndices.mobileNo] || "").toString().trim(),
+                    bankAccount: (row[columnIndices.bankAccount] || "").toString().trim(),
+                    branchName: (row[columnIndices.branchName] || "").toString().trim(),
+                    plannedDate: plannedStr,
+                    actualDate: "",
+                    formLink: (row[columnIndices.formLink] || "").toString().trim(),
+                    paymentStatus: "Pending",
+                    paymentDate: "",
+                    department: (row[columnIndices.department] || "").toString().trim(),
+                    email: (row[columnIndices.email] || "").toString().trim(),
+                    joiningDate: (row[columnIndices.joiningDate] || "").toString().trim(),
+                    aadharNo: (row[columnIndices.aadharNo] || "").toString().trim(),
+                    sheetRow: rowIndex + 2 // Actual row number in Google Sheets
+                  };
+                  
+                  pendingPayments.push(paymentRecord);
+                  
+                  // Debug log for first few records
+                  if (pendingPayments.length <= 3) {
+                    console.log("Added pending payment:", {
+                      employeeId: paymentRecord.employeeId,
+                      name: paymentRecord.name,
+                      plannedDate: paymentRecord.plannedDate,
+                      amount: paymentRecord.amount
+                    });
+                  }
+                }
+              }
+            } catch (rowError) {
+              console.error(`Error processing row ${rowIndex}:`, rowError);
+            }
+          });
+          
+          console.log(`Found ${pendingPayments.length} pending payments`);
+          
+          if (pendingPayments.length > 0) {
+            console.log("First few pending payments:");
+            pendingPayments.slice(0, 5).forEach((item, idx) => {
+              console.log(`${idx + 1}. ${item.employeeId} - ${item.name} - Planned: ${item.plannedDate} - Amount: ₹${item.amount}`);
+            });
+          } else {
+            console.log("No pending payments found. Checking data conditions:");
+            console.log("1. Looking for rows where Planned (DE) has value and Actual (DF) is empty");
+            console.log("2. Column DE index:", columnIndices.plannedDate);
+            console.log("3. Column DF index:", columnIndices.actualDate);
+            
+            // Sample some rows to see what's happening
+            console.log("\nSample rows (first 5):");
+            rows.slice(0, 5).forEach((row, idx) => {
+              console.log(`Row ${idx + 2}:`, {
+                employeeId: row[columnIndices.employeeId],
+                name: row[columnIndices.name],
+                planned: row[columnIndices.plannedDate],
+                actual: row[columnIndices.actualDate],
+                amount: row[columnIndices.amount]
+              });
+            });
+          }
+          
+          // Initialize selected payments
           const initialSelections = {};
-          transformedData.forEach(item => {
-            initialSelections[item.employeeCode] = item.paymentStatus === "Completed";
+          pendingPayments.forEach(item => {
+            initialSelections[item.id] = false;
           });
           setSelectedPayments(initialSelections);
           
-          setPaymentData(transformedData);
+          setPaymentData(pendingPayments);
         } else {
-          throw new Error(data.error || "Failed to fetch data");
+          throw new Error(data.error || "Failed to fetch data from JOINING sheet");
         }
       } catch (error) {
+        console.error("Fetch error:", error);
         setError(error.message);
         showNotification(`Failed to load data: ${error.message}`, "error");
       } finally {
@@ -88,140 +216,262 @@ const MakePayment = () => {
     }));
   };
 
-  const handlePaymentToggle = (employeeCode) => {
+  const handlePaymentToggle = (paymentId) => {
     setSelectedPayments(prev => ({
       ...prev,
-      [employeeCode]: !prev[employeeCode]
+      [paymentId]: !prev[paymentId]
     }));
   };
 
-  const handleBulkPayment = () => {
-    const selectedEmployees = paymentData.filter(
-      item => selectedPayments[item.employeeCode]
+  const handleBulkPayment = async () => {
+    const selectedItems = paymentData.filter(
+      item => selectedPayments[item.id]
     );
     
-    if (selectedEmployees.length === 0) {
-      showNotification("Please select at least one employee for payment", "error");
+    if (selectedItems.length === 0) {
+      showNotification("Please select at least one payment to process", "error");
       return;
     }
 
-    showNotification(`Processing payments for ${selectedEmployees.length} employees`, "info");
+    showNotification(`Processing ${selectedItems.length} payments...`, "info");
     
-    // In a real application, you would integrate with payment gateway here
-    // For now, we'll simulate payment processing
-    setTimeout(() => {
-      showNotification("Payments processed successfully!", "success");
+    try {
+      const currentDate = new Date();
+      // Format date as MM/DD/YYYY HH:MM:SS to match Google Sheets format
+      const formattedDate = `${(currentDate.getMonth() + 1).toString().padStart(2, '0')}/${currentDate.getDate().toString().padStart(2, '0')}/${currentDate.getFullYear()} ${currentDate.getHours().toString().padStart(2, '0')}:${currentDate.getMinutes().toString().padStart(2, '0')}:${currentDate.getSeconds().toString().padStart(2, '0')}`;
       
-      // Update payment status locally
-      const updatedData = paymentData.map(item => {
-        if (selectedPayments[item.employeeCode]) {
-          return {
-            ...item,
-            paymentStatus: "Completed",
-            transactionId: `TXN${Date.now()}${Math.floor(Math.random() * 1000)}`
-          };
+      console.log(`Bulk payment date: ${formattedDate}`);
+      
+      // Process each selected payment
+      for (const item of selectedItems) {
+        try {
+          console.log(`Processing payment for ${item.name} (Row: ${item.sheetRow})`);
+          
+          const updateUrl = "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec";
+          
+          const params = new URLSearchParams();
+          params.append('sheetName', 'JOINING');
+          params.append('action', 'updateCell');
+          params.append('rowIndex', item.sheetRow);
+          params.append('columnIndex', 110); // Column DF is index 110 (0-based)
+          params.append('value', formattedDate);
+          
+          const response = await fetch(updateUrl, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: params,
+          });
+          
+          console.log(`Response for ${item.name}:`, response);
+          
+        } catch (itemError) {
+          console.error(`Error processing ${item.name}:`, itemError);
         }
-        return item;
-      });
+      }
       
-      setPaymentData(updatedData);
+      showNotification(`${selectedItems.length} payments marked as paid!`, "success");
+      
+      // Remove processed items from the list
+      const processedIds = selectedItems.map(item => item.id);
+      const remainingPayments = paymentData.filter(item => !processedIds.includes(item.id));
+      setPaymentData(remainingPayments);
       
       // Clear selections
       const clearedSelections = {};
-      paymentData.forEach(item => {
-        clearedSelections[item.employeeCode] = false;
+      remainingPayments.forEach(item => {
+        clearedSelections[item.id] = false;
       });
       setSelectedPayments(clearedSelections);
-    }, 2000);
+      
+    } catch (error) {
+      console.error("Bulk payment error:", error);
+      showNotification(`Payment processing failed: ${error.message}`, "error");
+    }
   };
 
-  const handleIndividualPayment = (employeeCode, paymentLink) => {
-    if (!paymentLink) {
-      showNotification("No payment link available for this employee", "error");
+  const handleIndividualPayment = async (item) => {
+    if (!item.id) {
+      showNotification("Invalid payment record", "error");
       return;
     }
 
-    // Open payment link in new tab
-    window.open(paymentLink, '_blank');
-    
-    // Update payment status for this employee
-    const updatedData = paymentData.map(item => {
-      if (item.employeeCode === employeeCode) {
-        return {
-          ...item,
-          paymentStatus: "In Progress"
-        };
+    try {
+      showNotification(`Processing payment for ${item.name}...`, "info");
+      
+      const currentDate = new Date();
+      // Format date as MM/DD/YYYY HH:MM:SS
+      const formattedDate = `${(currentDate.getMonth() + 1).toString().padStart(2, '0')}/${currentDate.getDate().toString().padStart(2, '0')}/${currentDate.getFullYear()} ${currentDate.getHours().toString().padStart(2, '0')}:${currentDate.getMinutes().toString().padStart(2, '0')}:${currentDate.getSeconds().toString().padStart(2, '0')}`;
+      
+      console.log(`Updating row ${item.sheetRow}, column DF with date: ${formattedDate}`);
+      
+      const updateUrl = "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec";
+      
+      const params = new URLSearchParams();
+      params.append('sheetName', 'JOINING');
+      params.append('action', 'updateCell');
+      params.append('rowIndex', item.sheetRow);
+      params.append('columnIndex', 110); // Column DF is index 110 (0-based)
+      params.append('value', formattedDate);
+      
+      const response = await fetch(updateUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params,
+      });
+      
+      if (response.ok) {
+        showNotification(`Payment recorded for ${item.name}`, "success");
+        
+        // Remove the item from the list
+        const updatedData = paymentData.filter(payment => payment.id !== item.id);
+        setPaymentData(updatedData);
+        
+        // Clear selection for this item
+        setSelectedPayments(prev => ({
+          ...prev,
+          [item.id]: false
+        }));
+      } else {
+        throw new Error("Failed to update payment record");
       }
-      return item;
-    });
-    
-    setPaymentData(updatedData);
-    showNotification(`Opening payment gateway for ${employeeCode}`, "info");
+      
+    } catch (error) {
+      console.error("Individual payment error:", error);
+      showNotification(`Payment failed: ${error.message}`, "error");
+    }
   };
 
-  const downloadPaySlip = (employeeCode) => {
-    const employee = paymentData.find(item => item.employeeCode === employeeCode);
-    if (employee) {
-      showNotification(`Downloading pay slip for ${employee.employeeName}`, "success");
-      // In a real app, this would generate/download a PDF
-      // For demo, we'll create a simple text file
-      const paySlipContent = `
-        PAY SLIP
-        Employee: ${employee.employeeName}
-        Code: ${employee.employeeCode}
-        Designation: ${employee.designation}
-        Period: ${employee.month} ${employee.year}
-        
-        EARNINGS:
-        Basic: ₹${employee.basic.toLocaleString()}
-        HRA: ₹${employee.hra.toLocaleString()}
-        Conveyance: ₹${employee.conveyance.toLocaleString()}
-        Medical Allowance: ₹${employee.medicalAllowance.toLocaleString()}
-        Special Allowance: ₹${employee.specialAllowance.toLocaleString()}
-        Other Allowances: ₹${employee.otherAllowances.toLocaleString()}
-        Additional Salary: ₹${employee.additionalSalary.toLocaleString()}
-        
-        DEDUCTIONS:
-        Loan: ₹${employee.loan.toLocaleString()}
-        
-        NET PAYABLE: ₹${employee.toBePaidAfterPF.toLocaleString()}
-        Status: ${employee.paymentStatus}
-      `;
+  const downloadPaymentReceipt = (item) => {
+    if (!item) return;
+    
+    showNotification(`Downloading receipt for ${item.name}`, "info");
+    
+    // Create receipt content
+    const receiptContent = `
+====================================
+PAYMENT RECEIPT - FINAL SETTLEMENT
+====================================
+
+Receipt No: REC-${Date.now().toString().slice(-8)}-${item.employeeId}
+Date: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+Time: ${new Date().toLocaleTimeString('en-IN')}
+
+EMPLOYEE DETAILS:
+-----------------
+Employee ID: ${item.employeeId || "N/A"}
+Name: ${item.name || "N/A"}
+Designation: ${item.designation || "N/A"}
+Department: ${item.department || "N/A"}
+Aadhar No: ${item.aadharNo || "N/A"}
+Mobile: ${item.mobileNo || "N/A"}
+Email: ${item.email || "N/A"}
+
+EMPLOYMENT DETAILS:
+-------------------
+Joining Date: ${formatDateForDisplay(item.joiningDate) || "N/A"}
+Last Working Date: ${formatDateForDisplay(item.lastWorkingDate) || "N/A"}
+Leaving Date: ${formatDateForDisplay(item.leavingDate) || "N/A"}
+Termination Reason: ${item.terminationReason || "N/A"}
+
+PAYMENT DETAILS:
+----------------
+Settlement Amount: ₹${item.amount.toLocaleString('en-IN')}
+Payment Status: ${item.paymentStatus}
+Planned Payment Date: ${formatDateForDisplay(item.plannedDate) || "N/A"}
+Actual Payment Date: ${item.paymentDate ? formatDateForDisplay(item.paymentDate) : "Pending"}
+
+BANK DETAILS:
+-------------
+Bank Account: ${item.bankAccount || "N/A"}
+Branch Name: ${item.branchName || "N/A"}
+
+====================================
+AUTHORIZED SIGNATURE
+
+This is a computer generated receipt.
+Amount: ₹${item.amount.toLocaleString('en-IN')} only.
+====================================
+`;
+    
+    const blob = new Blob([receiptContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Settlement_Receipt_${item.employeeId}_${item.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const formatDateForDisplay = (dateString) => {
+    if (!dateString || dateString.toString().trim() === "") return "N/A";
+    
+    try {
+      const str = dateString.toString().trim();
       
-      const blob = new Blob([paySlipContent], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `payslip_${employee.employeeCode}_${employee.month}_${employee.year}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      // Handle date with timestamp like "12/17/2025 11:25:20"
+      if (str.includes(' ')) {
+        const [datePart, timePart] = str.split(' ');
+        const [month, day, year] = datePart.split('/');
+        return `${day}/${month}/${year}`;
+      }
+      
+      // Handle date without timestamp
+      if (str.includes('/')) {
+        const parts = str.split('/');
+        if (parts.length === 3) {
+          return `${parts[1]}/${parts[0]}/${parts[2]}`;
+        }
+      }
+      
+      // Try to parse as Date object
+      const date = new Date(str);
+      if (!isNaN(date.getTime())) {
+        return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+      }
+      
+      return str;
+    } catch (error) {
+      console.error("Date formatting error:", error, "for date:", dateString);
+      return dateString;
     }
+  };
+
+  const openGoogleForm = (formLink) => {
+    if (!formLink) {
+      showNotification("No form link available", "error");
+      return;
+    }
+    
+    // Open form in new tab
+    window.open(formLink, '_blank', 'noopener,noreferrer');
+    showNotification("Opening Google Form...", "info");
   };
 
   const filteredData = paymentData.filter((item) => {
-    const matchesSearch = 
-      item.employeeCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.designation.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.year.toString().includes(searchTerm) ||
-      item.month.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.paymentStatus.toLowerCase().includes(searchTerm.toLowerCase());
+    // Apply search filter
+    const matchesSearch = searchTerm === "" || 
+      (item.employeeId && item.employeeId.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (item.name && item.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (item.designation && item.designation.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (item.mobileNo && item.mobileNo.includes(searchTerm)) ||
+      (item.department && item.department.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    let matchesPeriod = true;
-    if (selectedPeriod) {
-      const [selectedYear, selectedMonthNum] = selectedPeriod.split('-');
-      const monthNames = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
-      ];
-      const selectedMonthName = monthNames[parseInt(selectedMonthNum) - 1];
-      matchesPeriod = item.year.toString() === selectedYear && 
-                     item.month.toString() === selectedMonthName;
-    }
+    // Apply status filter
+    const matchesStatus = !filters.status || item.paymentStatus === filters.status;
     
-    return matchesSearch && matchesPeriod;
+    // Apply department filter
+    const matchesDepartment = !filters.department || 
+      (item.department && item.department.toLowerCase().includes(filters.department.toLowerCase()));
+    
+    return matchesSearch && matchesStatus && matchesDepartment;
   });
 
   return (
@@ -249,22 +499,57 @@ const MakePayment = () => {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-blue-900">
-              Make Payments
+              Employee Settlement Payments
             </h1>
-            <p className="text-gray-600 mt-1">Process salary payments for employees</p>
+            <p className="text-gray-600 mt-1">
+              Process final settlement payments (Planned date filled, Actual date empty)
+            </p>
+            <p className="text-sm text-gray-500 mt-1">
+              Showing: {paymentData.length} pending payments
+            </p>
           </div>
           
           <div className="flex gap-3">
             <button
               onClick={handleBulkPayment}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-md"
+              disabled={Object.values(selectedPayments).filter(Boolean).length === 0}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors shadow-md ${
+                Object.values(selectedPayments).filter(Boolean).length === 0
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-green-600 text-white hover:bg-green-700'
+              }`}
             >
               <CreditCard size={18} />
-              Process Bulk Payments
+              Mark Selected as Paid ({Object.values(selectedPayments).filter(Boolean).length})
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md">
+            <button 
+              onClick={() => {
+                // Export all pending payments
+                if (paymentData.length === 0) {
+                  showNotification("No data to export", "warning");
+                  return;
+                }
+                
+                const csvContent = "data:text/csv;charset=utf-8," 
+                  + ["Employee ID,Name,Designation,Department,Amount,Mobile No,Bank Account,Branch Name,Planned Date,Last Working Date"].join(",") + "\n"
+                  + paymentData.map(item => 
+                    `"${item.employeeId}","${item.name}","${item.designation}","${item.department}",${item.amount},"${item.mobileNo}","${item.bankAccount}","${item.branchName}","${formatDateForDisplay(item.plannedDate)}","${formatDateForDisplay(item.lastWorkingDate)}"`
+                  ).join("\n");
+                
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `Pending_Payments_${new Date().toISOString().split('T')[0]}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                showNotification("Report exported successfully!", "success");
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md"
+            >
               <Download size={18} />
-              Export Report
+              Export CSV
             </button>
           </div>
         </div>
@@ -276,7 +561,7 @@ const MakePayment = () => {
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Search employees, status, or period..."
+                  placeholder="Search by Employee ID, Name, Designation, Mobile or Department..."
                   className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -319,9 +604,6 @@ const MakePayment = () => {
                     >
                       <option value="">All Status</option>
                       <option value="Pending">Pending</option>
-                      <option value="Completed">Completed</option>
-                      <option value="In Progress">In Progress</option>
-                      <option value="Failed">Failed</option>
                     </select>
                   </div>
                   
@@ -329,19 +611,13 @@ const MakePayment = () => {
                     <label className="block text-sm mb-1 text-gray-700 font-medium">
                       Department
                     </label>
-                    <select
+                    <input
+                      type="text"
                       value={filters.department}
                       onChange={(e) => handleFilterChange("department", e.target.value)}
                       className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 text-gray-900 text-sm"
-                    >
-                      <option value="">All Departments</option>
-                      <option value="IT">IT</option>
-                      <option value="HR">HR</option>
-                      <option value="Finance">Finance</option>
-                      <option value="Operations">Operations</option>
-                      <option value="Sales">Sales</option>
-                      <option value="Marketing">Marketing</option>
-                    </select>
+                      placeholder="Enter department"
+                    />
                   </div>
                 </div>
               </div>
@@ -352,27 +628,30 @@ const MakePayment = () => {
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white rounded-xl p-4 border border-gray-200 shadow">
-            <div className="text-sm text-gray-500">Total Payable</div>
+            <div className="text-sm text-gray-500">Total Pending Amount</div>
             <div className="text-2xl font-bold text-gray-900 mt-1">
-              ₹{filteredData.reduce((sum, item) => sum + item.toBePaidAfterPF, 0).toLocaleString()}
+              ₹{paymentData.reduce((sum, item) => sum + item.amount, 0).toLocaleString('en-IN')}
             </div>
           </div>
           <div className="bg-white rounded-xl p-4 border border-gray-200 shadow">
             <div className="text-sm text-gray-500">Pending Payments</div>
             <div className="text-2xl font-bold text-orange-600 mt-1">
-              {filteredData.filter(item => item.paymentStatus === "Pending").length}
-            </div>
-          </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-200 shadow">
-            <div className="text-sm text-gray-500">Completed</div>
-            <div className="text-2xl font-bold text-green-600 mt-1">
-              {filteredData.filter(item => item.paymentStatus === "Completed").length}
+              {paymentData.length}
             </div>
           </div>
           <div className="bg-white rounded-xl p-4 border border-gray-200 shadow">
             <div className="text-sm text-gray-500">Selected for Payment</div>
-            <div className="text-2xl font-bold text-blue-600 mt-1">
+            <div className="text-2xl font-bold text-purple-600 mt-1">
               {Object.values(selectedPayments).filter(Boolean).length}
+            </div>
+          </div>
+          <div className="bg-white rounded-xl p-4 border border-gray-200 shadow">
+            <div className="text-sm text-gray-500">Total Amount Selected</div>
+            <div className="text-2xl font-bold text-green-600 mt-1">
+              ₹{paymentData
+                .filter(item => selectedPayments[item.id])
+                .reduce((sum, item) => sum + item.amount, 0)
+                .toLocaleString('en-IN')}
             </div>
           </div>
         </div>
@@ -383,15 +662,17 @@ const MakePayment = () => {
             {loading ? (
               <div className="flex justify-center items-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+                <span className="ml-4 text-gray-600">Loading pending payments...</span>
               </div>
             ) : error ? (
               <div className="px-6 py-12 text-center">
-                <p className="text-red-600">Error: {error}</p>
+                <p className="text-red-600 font-medium">Error: {error}</p>
+                <p className="text-gray-500 text-sm mt-2">Please check console for details</p>
                 <button
                   onClick={() => window.location.reload()}
-                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                 >
-                  Retry
+                  Retry Loading
                 </button>
               </div>
             ) : (
@@ -403,7 +684,7 @@ const MakePayment = () => {
                         Select
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-blue-900 uppercase tracking-wider bg-blue-100">
-                        Emp Code
+                        Employee ID
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-blue-900 uppercase tracking-wider bg-blue-100">
                         Name
@@ -412,17 +693,20 @@ const MakePayment = () => {
                         Designation
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-blue-900 uppercase tracking-wider bg-blue-100">
-                        Net Payable
+                        Department
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-blue-900 uppercase tracking-wider bg-blue-100">
-                        Period
+                        Amount
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-blue-900 uppercase tracking-wider bg-blue-100">
-                        Payment Status
+                        Planned Date
                       </th>
-                      {/* <th className="px-4 py-3 text-left text-xs font-medium text-blue-900 uppercase tracking-wider bg-blue-100">
-                        Transaction ID
-                      </th> */}
+                      <th className="px-4 py-3 text-left text-xs font-medium text-blue-900 uppercase tracking-wider bg-blue-100">
+                        Bank Details
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-blue-900 uppercase tracking-wider bg-blue-100">
+                        Status
+                      </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-blue-900 uppercase tracking-wider bg-blue-100">
                         Actions
                       </th>
@@ -430,84 +714,84 @@ const MakePayment = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredData.length > 0 ? (
-                      filteredData.map((item, index) => (
+                      filteredData.map((item) => (
                         <tr 
-                          key={index} 
+                          key={item.id} 
                           className={`hover:bg-gray-50 transition-colors ${
-                            selectedPayments[item.employeeCode] ? 'bg-blue-50' : ''
+                            selectedPayments[item.id] ? 'bg-blue-50' : ''
                           }`}
                         >
                           <td className="px-4 py-4 whitespace-nowrap">
                             <input
                               type="checkbox"
-                              checked={selectedPayments[item.employeeCode] || false}
-                              onChange={() => handlePaymentToggle(item.employeeCode)}
+                              checked={selectedPayments[item.id] || false}
+                              onChange={() => handlePaymentToggle(item.id)}
                               className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
                             />
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {item.employeeCode}
+                            {item.employeeId || "N/A"}
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <div className="font-medium">{item.employeeName}</div>
-                            <div className="text-xs text-gray-500">{item.department || "Department"}</div>
+                            <div className="font-medium">{item.name}</div>
+                            <div className="text-xs text-gray-500">
+                              {item.mobileNo || "No phone"}
+                            </div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                             {item.designation}
                           </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {item.department || "N/A"}
+                          </td>
                           <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
-                            ₹{item.toBePaidAfterPF.toLocaleString()}
+                            ₹{item.amount.toLocaleString('en-IN')}
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <div>{item.month}</div>
-                            <div className="text-xs text-gray-500">{item.year}</div>
+                            {formatDateForDisplay(item.plannedDate)}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <div className="font-medium">{item.bankAccount || "N/A"}</div>
+                            <div className="text-xs text-gray-500">{item.branchName || ""}</div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
                             <span className={`px-2 py-1 text-xs rounded-full font-medium ${
                               item.paymentStatus === "Completed" 
                                 ? "bg-green-100 text-green-800"
-                                : item.paymentStatus === "In Progress"
-                                ? "bg-blue-100 text-blue-800"
-                                : item.paymentStatus === "Failed"
-                                ? "bg-red-100 text-red-800"
                                 : "bg-yellow-100 text-yellow-800"
                             }`}>
                               {item.paymentStatus}
                             </span>
                           </td>
-                          {/* <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
-                            {item.transactionId || "N/A"}
-                          </td> */}
                           <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap gap-1">
                               <button
-                                onClick={() => handleIndividualPayment(item.employeeCode, item.paymentLink)}
-                                className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
-                                title="Make Payment"
+                                onClick={() => handleIndividualPayment(item)}
+                                className="flex items-center gap-1 px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
+                                title="Mark as Paid"
                               >
                                 <CreditCard size={12} />
-                                Pay Now
+                                Paid
                               </button>
                               
-                              {/* <button
-                                onClick={() => downloadPaySlip(item.employeeCode)}
-                                className="flex items-center gap-1 px-3 py-1 bg-gray-200 text-gray-700 text-xs rounded hover:bg-gray-300 transition-colors"
-                                title="Download Pay Slip"
+                              <button
+                                onClick={() => downloadPaymentReceipt(item)}
+                                className="flex items-center gap-1 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+                                title="Download Receipt"
                               >
                                 <Download size={12} />
-                                Slip
-                              </button> */}
+                                Receipt
+                              </button>
                               
-                              {item.paymentLink && (
-                                <a
-                                  href={item.paymentLink}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1 px-2 py-1 text-blue-600 hover:text-blue-800"
-                                  title="Open Payment Link"
+                              {item.formLink && (
+                                <button
+                                  onClick={() => openGoogleForm(item.formLink)}
+                                  className="flex items-center gap-1 px-2 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 transition-colors"
+                                  title="Open Google Form"
                                 >
-                                  <ExternalLink size={12} />
-                                </a>
+                                  <FileText size={12} />
+                                  Form
+                                </button>
                               )}
                             </div>
                           </td>
@@ -515,17 +799,41 @@ const MakePayment = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="9" className="px-6 py-12 text-center">
+                        <td colSpan="10" className="px-6 py-12 text-center">
                           <div className="flex flex-col items-center justify-center">
                             <div className="text-gray-400 mb-4">
                               <CreditCard size={48} />
                             </div>
                             <p className="text-gray-500 text-lg font-medium">
-                              No payment records found
+                              {paymentData.length === 0 
+                                ? "No pending payments found" 
+                                : "No payments match your search criteria"}
                             </p>
-                            <p className="text-gray-400 mt-1">
-                              Try adjusting your search or filters
+                            <p className="text-gray-400 mt-1 text-sm">
+                              {paymentData.length === 0 
+                                ? "All payments are processed or no Planned dates are set" 
+                                : "Try adjusting your search or filters"}
                             </p>
+                            {paymentData.length === 0 && (
+                              <div className="mt-4 space-x-2">
+                                <button
+                                  onClick={() => window.location.reload()}
+                                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                                >
+                                  Refresh Data
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    // Force fetch with debug
+                                    console.log("Manual refresh triggered");
+                                    window.location.reload();
+                                  }}
+                                  className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+                                >
+                                  Debug Refresh
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -538,35 +846,38 @@ const MakePayment = () => {
         </div>
 
         {/* Footer Summary */}
-        <div className="bg-white rounded-xl p-4 border border-gray-200 shadow">
-          <div className="flex flex-col md:flex-row md:items-center justify-between">
-            <div className="text-sm text-gray-600">
-              Showing <span className="font-semibold">{filteredData.length}</span> employees
-              {selectedPeriod && ` for ${selectedPeriod}`}
-            </div>
-            <div className="mt-2 md:mt-0">
-              <span className="text-sm text-gray-600 mr-4">
-                Selected Amount: <span className="font-bold text-green-600">
-                  ₹{filteredData
-                    .filter(item => selectedPayments[item.employeeCode])
-                    .reduce((sum, item) => sum + item.toBePaidAfterPF, 0)
-                    .toLocaleString()}
+        {filteredData.length > 0 && (
+          <div className="bg-white rounded-xl p-4 border border-gray-200 shadow">
+            <div className="flex flex-col md:flex-row md:items-center justify-between">
+              <div className="text-sm text-gray-600">
+                Showing <span className="font-semibold">{filteredData.length}</span> of {paymentData.length} pending payments
+                {selectedPeriod && ` for ${selectedPeriod}`}
+                {filters.department && ` in ${filters.department}`}
+              </div>
+              <div className="mt-2 md:mt-0">
+                <span className="text-sm text-gray-600 mr-4">
+                  Selected Amount: <span className="font-bold text-green-600">
+                    ₹{filteredData
+                      .filter(item => selectedPayments[item.id])
+                      .reduce((sum, item) => sum + item.amount, 0)
+                      .toLocaleString('en-IN')}
+                  </span>
                 </span>
-              </span>
-              <button
-                onClick={handleBulkPayment}
-                disabled={Object.values(selectedPayments).filter(Boolean).length === 0}
-                className={`px-6 py-2 rounded-lg font-medium ${
-                  Object.values(selectedPayments).filter(Boolean).length === 0
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-green-600 text-white hover:bg-green-700 shadow-md'
-                }`}
-              >
-                Pay Selected ({Object.values(selectedPayments).filter(Boolean).length})
-              </button>
+                <button
+                  onClick={handleBulkPayment}
+                  disabled={Object.values(selectedPayments).filter(Boolean).length === 0}
+                  className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+                    Object.values(selectedPayments).filter(Boolean).length === 0
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-green-600 text-white hover:bg-green-700 shadow-md'
+                  }`}
+                >
+                  Mark Selected as Paid ({Object.values(selectedPayments).filter(Boolean).length})
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
