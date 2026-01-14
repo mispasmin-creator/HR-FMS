@@ -20,7 +20,8 @@ const LeavingProcessTracker = () => {
   const [adminData, setAdminData] = useState({ pending: [], history: [] });
   const [accountData, setAccountData] = useState({ pending: [], history: [] });
   const [storeData, setStoreData] = useState({ pending: [], history: [] });
-  
+  const [dataCache, setDataCache] = useState(null);
+const [lastFetchTime, setLastFetchTime] = useState(0);
   // Form data states for each stage
   const [approvalForm, setApprovalForm] = useState({ status: '', remarks: '' });
   const [reportingForm, setReportingForm] = useState({
@@ -70,38 +71,66 @@ const LeavingProcessTracker = () => {
     fetchSocialSiteOptions();
   }, []);
 
-  const fetchAllData = async () => {
-    setLoading(true);
-    setTableLoading(true);
-    setError(null);
+const fetchAllData = async (forceRefresh = false) => {
+  // Check cache first (cache for 30 seconds)
+  const now = Date.now();
+  const cacheTime = 30000; // 30 seconds
+  
+  if (!forceRefresh && dataCache && (now - lastFetchTime) < cacheTime) {
+    // Use cached data
+    setApprovalData({ ...dataCache.approvalData });
+    setReportingData({ ...dataCache.reportingData });
+    setItData({ ...dataCache.itData });
+    setAdminData({ ...dataCache.adminData });
+    setAccountData({ ...dataCache.accountData });
+    setStoreData({ ...dataCache.storeData });
+    
+    setLoading(false);
+    setTableLoading(false);
+    return;
+  }
+  
+  setLoading(true);
+  setTableLoading(true);
+  setError(null);
 
-    try {
-      const response = await fetch(
-        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch'
-      );
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to fetch data from JOINING sheet');
-      }
-      
-      const rawData = result.data || result;
-      
-      if (!Array.isArray(rawData)) {
-        throw new Error('Expected array data not received');
-      }
+  
+  try {
+    // Fetch data only once
+    const response = await fetch(
+      'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch'
+    );
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to fetch data from JOINING sheet');
+    }
+    
+    const rawData = result.data || result;
+    
+    if (!Array.isArray(rawData)) {
+      throw new Error('Expected array data not received');
+    }
 
-      // Process data starting from row 7
-      const dataRows = rawData.length > 6 ? rawData.slice(6) : [];
+    // Skip the header rows and process only what's needed
+    const startRow = Math.max(6, 0); // Start from row 6 or 0
+    const dataRows = rawData.slice(startRow);
+    
+    // Process data in batches to avoid blocking the UI
+    const batchSize = 50;
+    const processedData = [];
+    
+    for (let i = 0; i < dataRows.length; i += batchSize) {
+      const batch = dataRows.slice(i, i + batchSize);
       
-      const processedData = dataRows.map(row => ({
-        // Basic Info
-        rowIndex: dataRows.indexOf(row) + 7,
+      const batchProcessed = batch.map((row, index) => ({
+        // Basic Info - only extract what's needed
+        rowIndex: i + index + startRow + 1,
         employeeCode: row[26] || '',
         serialNumber: row[1] || '',
         name: row[2] || '',
@@ -113,102 +142,132 @@ const LeavingProcessTracker = () => {
         reportingOfficer: row[28] || '',
         assignAssets: row[40] || '',
         
-        // Approval System (Columns BG, BH, BJ)
-        approvalPlanned: row[58] || '', // Column BG
-        approvalActual: row[59] || '', // Column BH
-        approvalStatus: row[61] || '', // Column BJ
+        // Approval System
+        approvalPlanned: row[58] || '',
+        approvalActual: row[59] || '',
+        approvalStatus: row[61] || '',
         
-        // Reporting Manager (Columns BK, BL, BN)
-        reportingManagerPlanned: row[62] || '', // Column BK
-        reportingManagerActual: row[63] || '', // Column BL
-        reportingManagerStatus: row[65] || '', // Column BN
+        // Reporting Manager
+        reportingManagerPlanned: row[62] || '',
+        reportingManagerActual: row[63] || '',
+        reportingManagerStatus: row[65] || '',
         
-        // IT Department (Columns BO, BP, BR)
-        itDeptPlanned: row[66] || '', // Column BO
-        itDeptActual: row[67] || '', // Column BP
-        itDeptSummary: row[69] || '', // Column BR
+        // IT Department
+        itDeptPlanned: row[66] || '',
+        itDeptActual: row[67] || '',
+        itDeptSummary: row[69] || '',
         
-        // Admin Department (Columns BM, BN, BO)
-        adminDeptPlanned: row[70] || '', // Column BM
-        adminDeptActual: row[71] || '', // Column BN
-        adminDeptSummary: row[73] || '', // Column BO
+        // Admin Department
+        adminDeptPlanned: row[70] || '',
+        adminDeptActual: row[71] || '',
+        adminDeptSummary: row[73] || '',
         
-        // Account Department (Columns BW, BX, BY)
-        accountDeptPlanned: row[74] || '', // Column BW
-        accountDeptActual: row[75] || '', // Column BX
-        accountDeptSummary: row[77] || '', // Column BY
+        // Account Department
+        accountDeptPlanned: row[74] || '',
+        accountDeptActual: row[75] || '',
+        accountDeptSummary: row[77] || '',
         
-        // Store Department (Columns CA, CB, CD)
-        storeDeptPlanned: row[78] || '', // Column CA
-        storeDeptActual: row[79] || '', // Column CB
-        storeDeptSummary: row[81] || '' // Column CD
+        // Store Department
+        storeDeptPlanned: row[78] || '',
+        storeDeptActual: row[79] || '',
+        storeDeptSummary: row[81] || ''
       }));
-
-      // Filter data for each stage (EXACT SAME LOGIC AS ORIGINAL PAGES)
       
-      // 1. Approval System: Column BG not null and Column BH null
-      const approvalPending = processedData.filter(
-        task => task.approvalPlanned && !task.approvalActual
-      );
-      const approvalHistory = processedData.filter(
-        task => task.approvalPlanned && task.approvalActual
-      );
-      setApprovalData({ pending: approvalPending, history: approvalHistory });
-
-      // 2. Reporting Manager: Column BK not null and Column BL null
-      const reportingPending = processedData.filter(
-        task => task.reportingManagerPlanned && !task.reportingManagerActual
-      );
-      const reportingHistory = processedData.filter(
-        task => task.reportingManagerPlanned && task.reportingManagerActual
-      );
-      setReportingData({ pending: reportingPending, history: reportingHistory });
-
-      // 3. IT Department: Column BO not null and Column BP null
-      const itPending = processedData.filter(
-        task => task.itDeptPlanned && !task.itDeptActual
-      );
-      const itHistory = processedData.filter(
-        task => task.itDeptPlanned && task.itDeptActual
-      );
-      setItData({ pending: itPending, history: itHistory });
-
-      // 4. Admin Department: Column BM not null and Column BN null
-      const adminPending = processedData.filter(
-        task => task.adminDeptPlanned && !task.adminDeptActual
-      );
-      const adminHistory = processedData.filter(
-        task => task.adminDeptPlanned && task.adminDeptActual
-      );
-      setAdminData({ pending: adminPending, history: adminHistory });
-
-      // 5. Account Department: Column BW not null and Column BX null
-      const accountPending = processedData.filter(
-        task => task.accountDeptPlanned && !task.accountDeptActual
-      );
-      const accountHistory = processedData.filter(
-        task => task.accountDeptPlanned && task.accountDeptActual
-      );
-      setAccountData({ pending: accountPending, history: accountHistory });
-
-      // 6. Store Department: Column CA not null and Column CB null
-      const storePending = processedData.filter(
-        task => task.storeDeptPlanned && !task.storeDeptActual
-      );
-      const storeHistory = processedData.filter(
-        task => task.storeDeptPlanned && task.storeDeptActual
-      );
-      setStoreData({ pending: storePending, history: storeHistory });
-
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      setError(error.message);
-      toast.error(`Failed to load data: ${error.message}`);
-    } finally {
-      setLoading(false);
-      setTableLoading(false);
+      processedData.push(...batchProcessed);
+      
+      // Yield to the UI thread every batch
+      if (i % batchSize === 0) {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
     }
-  };
+
+    // Filter data for each stage in one pass
+    const approvalPending = [];
+    const approvalHistory = [];
+    const reportingPending = [];
+    const reportingHistory = [];
+    const itPending = [];
+    const itHistory = [];
+    const adminPending = [];
+    const adminHistory = [];
+    const accountPending = [];
+    const accountHistory = [];
+    const storePending = [];
+    const storeHistory = [];
+
+    for (const item of processedData) {
+      // Approval System
+      if (item.approvalPlanned) {
+        if (!item.approvalActual) {
+          approvalPending.push(item);
+        } else {
+          approvalHistory.push(item);
+        }
+      }
+      
+      // Reporting Manager
+      if (item.reportingManagerPlanned) {
+        if (!item.reportingManagerActual) {
+          reportingPending.push(item);
+        } else {
+          reportingHistory.push(item);
+        }
+      }
+      
+      // IT Department
+      if (item.itDeptPlanned) {
+        if (!item.itDeptActual) {
+          itPending.push(item);
+        } else {
+          itHistory.push(item);
+        }
+      }
+      
+      // Admin Department
+      if (item.adminDeptPlanned) {
+        if (!item.adminDeptActual) {
+          adminPending.push(item);
+        } else {
+          adminHistory.push(item);
+        }
+      }
+      
+      // Account Department
+      if (item.accountDeptPlanned) {
+        if (!item.accountDeptActual) {
+          accountPending.push(item);
+        } else {
+          accountHistory.push(item);
+        }
+      }
+      
+      // Store Department
+      if (item.storeDeptPlanned) {
+        if (!item.storeDeptActual) {
+          storePending.push(item);
+        } else {
+          storeHistory.push(item);
+        }
+      }
+    }
+
+    // Update all state at once
+    setApprovalData({ pending: approvalPending, history: approvalHistory });
+    setReportingData({ pending: reportingPending, history: reportingHistory });
+    setItData({ pending: itPending, history: itHistory });
+    setAdminData({ pending: adminPending, history: adminHistory });
+    setAccountData({ pending: accountPending, history: accountHistory });
+    setStoreData({ pending: storePending, history: storeHistory });
+
+  } catch (error) {
+    console.error('Error fetching data:', error);
+    setError(error.message);
+    toast.error(`Failed to load data: ${error.message}`);
+  } finally {
+    setLoading(false);
+    setTableLoading(false);
+  }
+};
 
   const fetchDepartments = async () => {
     try {
@@ -1317,8 +1376,9 @@ const LeavingProcessTracker = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {formatDateForDisplay(item.dateOfJoining)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.LeavingDate}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.designation}</td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+          {formatDateForDisplay(item.LeavingDate)}
+        </td>                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.designation}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.department}</td>
                           {activeStageTab === 'reporting' && (
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.reportingOfficer}</td>
@@ -1410,8 +1470,9 @@ const LeavingProcessTracker = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {formatDateForDisplay(item.dateOfJoining)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.LeavingDate}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.designation}</td>
+<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+  {formatDateForDisplay(item.LeavingDate)}
+</td>                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.designation}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.department}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {stage === 'approval' ? (

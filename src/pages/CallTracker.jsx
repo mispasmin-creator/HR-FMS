@@ -20,8 +20,35 @@ const CallTracker = () => {
   
   const [enquiryData, setEnquiryData] = useState([]);
   const [historyData, setHistoryData] = useState([]);
-
-  // Add export functionality
+// Add this function near your other helper functions (around line 140)
+const formatTimestampForDisplay = (timestampString) => {
+  if (!timestampString || timestampString.trim() === '') return '-';
+  
+  try {
+    // Check if it's already in a readable format
+    if (timestampString.includes('/') && timestampString.includes(':')) {
+      return timestampString;
+    }
+    
+    // Try to parse as date
+    const date = new Date(timestampString);
+    if (!isNaN(date.getTime())) {
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const seconds = String(date.getSeconds()).padStart(2, '0');
+      
+      return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+    }
+    
+    return timestampString;
+  } catch (error) {
+    console.error('Error formatting timestamp:', timestampString, error);
+    return timestampString;
+  }
+};
   const exportToExcel = () => {
     try {
       let dataToExport = [];
@@ -312,34 +339,61 @@ const CallTracker = () => {
 
   // Helper function to format DD/MM/YYYY dates
   const formatDateForDisplay = (dateString) => {
-    if (!dateString || dateString.trim() === '') return '-';
-    
-    try {
-      if (typeof dateString === 'string' && dateString.includes('/')) {
+  if (!dateString || dateString.trim() === '') return '-';
+  
+  try {
+    // If already in DD/MM/YYYY format, return as is
+    if (typeof dateString === 'string') {
+      // Check for DD/MM/YYYY format
+      if (dateString.includes('/')) {
         const parts = dateString.split('/');
         if (parts.length === 3) {
           const day = parseInt(parts[0], 10);
           const month = parseInt(parts[1], 10);
+          // Validate day and month ranges
           if (day > 0 && day <= 31 && month > 0 && month <= 12) {
             return dateString;
           }
         }
       }
       
+      // Try to parse ISO date format (2024-01-11T18:30:00.000Z)
       const date = new Date(dateString);
+      
+      // If invalid, try YYYY-MM-DD format
+      if (isNaN(date.getTime()) && dateString.includes('-')) {
+        const cleanDateStr = dateString.split('T')[0]; // Remove time part if exists
+        const parts = cleanDateStr.split('-');
+        if (parts.length === 3) {
+          const year = parseInt(parts[0], 10);
+          const month = parseInt(parts[1], 10) - 1; // Months are 0-indexed
+          const day = parseInt(parts[2], 10);
+          const newDate = new Date(year, month, day);
+          if (!isNaN(newDate.getTime())) {
+            const formattedDay = String(newDate.getDate()).padStart(2, '0');
+            const formattedMonth = String(newDate.getMonth() + 1).padStart(2, '0');
+            const formattedYear = newDate.getFullYear();
+            return `${formattedDay}/${formattedMonth}/${formattedYear}`;
+          }
+        }
+      }
+      
+      // If date is valid, format it
       if (!isNaN(date.getTime())) {
         const day = String(date.getDate()).padStart(2, '0');
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const year = date.getFullYear();
         return `${day}/${month}/${year}`;
       }
-      
-      return dateString;
-    } catch (error) {
-      console.error('Error formatting date:', dateString, error);
-      return dateString || '-';
     }
-  };
+    
+    return dateString || '-';
+  } catch (error) {
+    console.error('Error formatting date:', dateString, error);
+    return dateString || '-';
+  }
+};
+
 
   const handleCallClick = (item) => {
     setSelectedItem(item);
@@ -809,7 +863,7 @@ const CallTracker = () => {
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatDateForDisplay(item.plannedDate)}
+                         {formatDateForDisplay(item.plannedDate)}
                         </td>
                       </tr>
                     ))
@@ -927,10 +981,10 @@ const CallTracker = () => {
                           {item.candidateSays}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.nextDate || "-"}
+                         {formatDateForDisplay(item.nextDate) || "-"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.timestamp || "-"}
+                         {formatTimestampForDisplay(item.timestamp) || "-"}
                         </td>
                       </tr>
                     ))
@@ -1048,10 +1102,10 @@ const CallTracker = () => {
                           {item.candidateSays}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.nextDate || "-"}
+                          {formatDateForDisplay(item.nextDate) || "-"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.timestamp || "-"}
+                        {formatTimestampForDisplay(item.timestamp) || "-"}
                         </td>
                       </tr>
                     ))
@@ -1169,10 +1223,10 @@ const CallTracker = () => {
                           {item.candidateSays}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.nextDate || "-"}
+                      {formatDateForDisplay(item.nextDate) || "-"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.timestamp || "-"}
+                         {formatTimestampForDisplay(item.timestamp) || "-"}
                         </td>
                       </tr>
                     ))
@@ -1248,10 +1302,10 @@ const CallTracker = () => {
                           {item.candidateSays}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.nextDate || "-"}
+                         {formatDateForDisplay(item.nextDate) || "-"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.timestamp || "-"}
+                        {formatTimestampForDisplay(item.timestamp) || "-"}
                         </td>
                       </tr>
                     ))

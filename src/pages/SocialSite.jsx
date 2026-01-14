@@ -43,9 +43,30 @@ const formatDateToDDMMYY = (dateString) => {
 };
 
 // Add formatTableDate function for displaying dates in tables
+// Replace the current formatTableDate function with this:
 const formatTableDate = (dateString) => {
   if (!dateString || dateString.trim() === '') return '-';
-  return dateString;
+  
+  // Use the same formatDateToDDMMYY function for consistency
+  const formatted = formatDateToDDMMYY(dateString);
+  
+  // If formatting failed, return original
+  if (formatted === dateString) {
+    // Try to handle different date formats
+    try {
+      const date = new Date(dateString);
+      if (!isNaN(date.getTime())) {
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year = date.getFullYear().toString();
+        return `${day}/${month}/${year}`;
+      }
+    } catch (error) {
+      // If all fails, return original
+    }
+  }
+  
+  return formatted;
 };
 
 const SocialSite = () => {
@@ -288,7 +309,7 @@ const SocialSite = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-800">Social Site </h1>
+        <h1 className="text-2xl font-bold text-gray-800">Social Site  </h1>
       </div>
 
       {/* Filter and Search */}
@@ -459,7 +480,7 @@ const SocialSite = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {item.columnL ? (
-                            <span className="text-blue-600">{item.columnL}</span>
+                          <span className="text-blue-600">{formatTableDate(item.columnL)}</span>
                           ) : (
                             <span className="text-gray-400">-</span>
                           )}
@@ -578,7 +599,7 @@ const SocialSite = () => {
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <span className="text-blue-600">{item.columnM}</span>
+                          <span className="text-blue-600">{formatTableDate(item.columnM)}</span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
