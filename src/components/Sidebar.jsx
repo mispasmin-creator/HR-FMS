@@ -2278,33 +2278,33 @@ if (!document.getElementById('sidebar-scroll-prevention')) {
   { 
     path: '/reporting-manager', 
     icon: UserMinus, 
-    label: 'Reporting Manager',
+    label: 'Leaving Verification',
     badge: pendingReportingManagerCount > 0 ? pendingReportingManagerCount : null
   },
-  { 
-    path: '/it-department', 
-    icon: UserMinus, 
-    label: 'IT Department',
-    badge: pendingITDepartmentCount > 0 ? pendingITDepartmentCount : null
-  },
-  { 
-    path: '/admin-department', 
-    icon: UserMinus, 
-    label: 'Admin Department',
-    badge: (() => {
-      const totalAdminDept = 
-        (pendingAdminDepartmentCount || 0) + 
-        (pendingAccountDepartmentCount || 0) + 
-        (pendingStoreDepartmentCount || 0);
-      return totalAdminDept > 0 ? totalAdminDept : null;
-    })()
-  },
-  { 
-    path: '/hod-verification', 
-    icon: UserCog, 
-    label: 'HR Verification',
-    badge: pendingApprovalCount > 0 ? pendingApprovalCount : null // Add this
-  },
+  // { 
+  //   path: '/it-department', 
+  //   icon: UserMinus, 
+  //   label: 'IT Department',
+  //   badge: pendingITDepartmentCount > 0 ? pendingITDepartmentCount : null
+  // },
+  // { 
+  //   path: '/admin-department', 
+  //   icon: UserMinus, 
+  //   label: 'Admin Department',
+  //   badge: (() => {
+  //     const totalAdminDept = 
+  //       (pendingAdminDepartmentCount || 0) + 
+  //       (pendingAccountDepartmentCount || 0) + 
+  //       (pendingStoreDepartmentCount || 0);
+  //     return totalAdminDept > 0 ? totalAdminDept : null;
+  //   })()
+  // },
+  // { 
+  //   path: '/hod-verification', 
+  //   icon: UserCog, 
+  //   label: 'HR Verification',
+  //   badge: pendingApprovalCount > 0 ? pendingApprovalCount : null // Add this
+  // },
 
  { 
     path: '/employee', 

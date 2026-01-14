@@ -44,29 +44,37 @@ const MakePayment = () => {
             console.log(`${index}: ${header}`);
           });
           
-          // Based on your sheet structure, let's map the correct indices
-          // IMPORTANT: These are ZERO-BASED indices from the array
+         // Column mapping: A=0, B=1, C=2... Z=25, AA=26... DE=108, DF=109
+          // ZERO-BASED indices for reading from array
           const columnIndices = {
-            employeeId: 26, // Column AA (index 26)
-            name: 2,        // Column C (index 2)
-            designation: 35, // Column AJ (index 35)
-            leavingDate: 55, // Column BD (index 55)
-            terminationReason: 56, // Column BE (index 56)
-            lastWorkingDate: 57, // Column BF (index 57)
-            amount: 105,    // Column DA (index 105)
-            mobileNo: 11,   // Column L (index 11)
-            bankAccount: 33, // Column AH (index 33)
-            branchName: 16,  // Column Q (index 16)
-            plannedDate: 108, // Column DE (index 108)
-            actualDate: 109, // Column DF (index 109)
-            formLink: 111,   // Column DH (index 111)
-            department: 20,  // Column U (index 20)
-            joiningDate: 4,  // Column E (index 4)
-            email: 18,      // Column S (index 18)
-            aadharNo: 21,   // Column V (index 21)
-            status: 110,     // Column DG (index 110) - Check if this exists
+            employeeId: 26,   // Column AA
+            name: 2,          // Column C
+            designation: 35,  // Column AJ
+            leavingDate: 55,  // Column BD
+            terminationReason: 56, // Column BE
+            lastWorkingDate: 57,   // Column BF
+            amount: 105,      // Column DA - VERIFY THIS
+            mobileNo: 11,     // Column L
+            bankAccount: 33,  // Column AH
+            branchName: 16,   // Column Q
+            plannedDate: 108, // Column DE - Planned ✓
+            actualDate: 109,  // Column DF - Actual ✓
+            formLink: 111,    // Column DH
+            department: 20,   // Column U
+            joiningDate: 4,   // Column E
+            email: 18,        // Column S
+            aadharNo: 21,     // Column V
+            status: 110,      // Column DG
           };
+          
+          console.log("📍 Column Indices (0-based):", {
+            plannedDate: columnIndices.plannedDate,
+            actualDate: columnIndices.actualDate,
+            de_column: "DE = 108",
+            df_column: "DF = 109"
+          });
 
+          
           console.log("Using column indices:", columnIndices);
           
           // Transform and filter data - FIXED LOGIC
