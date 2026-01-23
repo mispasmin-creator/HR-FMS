@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Clock, CheckCircle, X, Filter, FileText, Package, Laptop, User, FileCheck, Building, Store, Briefcase } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { 
+  fetchAfterLeavingProcessData, 
+  updateAfterLeavingStage, 
+  createIndentRecord, 
+  fetchAfterLeavingMasterData 
+} from '../../services/afterLeavingService';
+import { generateNextIndentNumber } from '../../services/indentService';
 
 const LeavingProcessTracker = () => {
   const [activeTab, setActiveTab] = useState('pending');
@@ -20,8 +27,7 @@ const LeavingProcessTracker = () => {
   const [adminData, setAdminData] = useState({ pending: [], history: [] });
   const [accountData, setAccountData] = useState({ pending: [], history: [] });
   const [storeData, setStoreData] = useState({ pending: [], history: [] });
-  const [dataCache, setDataCache] = useState(null);
-const [lastFetchTime, setLastFetchTime] = useState(0);
+  
   // Form data states for each stage
   const [approvalForm, setApprovalForm] = useState({ status: '', remarks: '' });
   const [reportingForm, setReportingForm] = useState({
@@ -71,219 +77,90 @@ const [lastFetchTime, setLastFetchTime] = useState(0);
     fetchSocialSiteOptions();
   }, []);
 
-const fetchAllData = async (forceRefresh = false) => {
-  // Check cache first (cache for 30 seconds)
-  const now = Date.now();
-  const cacheTime = 30000; // 30 seconds
-  
-  if (!forceRefresh && dataCache && (now - lastFetchTime) < cacheTime) {
-    // Use cached data
-    setApprovalData({ ...dataCache.approvalData });
-    setReportingData({ ...dataCache.reportingData });
-    setItData({ ...dataCache.itData });
-    setAdminData({ ...dataCache.adminData });
-    setAccountData({ ...dataCache.accountData });
-    setStoreData({ ...dataCache.storeData });
-    
-    setLoading(false);
-    setTableLoading(false);
-    return;
-  }
-  
-  setLoading(true);
-  setTableLoading(true);
-  setError(null);
+  const fetchAllData = async () => {
+    setLoading(true);
+    setTableLoading(true);
+    setError(null);
 
-  
-  try {
-    // Fetch data only once
-    const response = await fetch(
-      'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch'
-    );
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    try {
+      const result = await fetchAfterLeavingProcessData();
+      
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      
+      const processedData = result.data;
+
+      // Filter data for each stage
+      // 1. Approval System
+      const approvalPending = processedData.filter(
+        task => task.approvalPlanned && !task.approvalActual
+      );
+      const approvalHistory = processedData.filter(
+        task => task.approvalPlanned && task.approvalActual
+      );
+      setApprovalData({ pending: approvalPending, history: approvalHistory });
+
+      // 2. Reporting Manager
+      const reportingPending = processedData.filter(
+        task => task.reportingManagerPlanned && !task.reportingManagerActual
+      );
+      const reportingHistory = processedData.filter(
+        task => task.reportingManagerPlanned && task.reportingManagerActual
+      );
+      setReportingData({ pending: reportingPending, history: reportingHistory });
+
+      // 3. IT Department
+      const itPending = processedData.filter(
+        task => task.itDeptPlanned && !task.itDeptActual
+      );
+      const itHistory = processedData.filter(
+        task => task.itDeptPlanned && task.itDeptActual
+      );
+      setItData({ pending: itPending, history: itHistory });
+
+      // 4. Admin Department
+      const adminPending = processedData.filter(
+        task => task.adminDeptPlanned && !task.adminDeptActual
+      );
+      const adminHistory = processedData.filter(
+        task => task.adminDeptPlanned && task.adminDeptActual
+      );
+      setAdminData({ pending: adminPending, history: adminHistory });
+
+      // 5. Account Department
+      const accountPending = processedData.filter(
+        task => task.accountDeptPlanned && !task.accountDeptActual
+      );
+      const accountHistory = processedData.filter(
+        task => task.accountDeptPlanned && task.accountDeptActual
+      );
+      setAccountData({ pending: accountPending, history: accountHistory });
+
+      // 6. Store Department
+      const storePending = processedData.filter(
+        task => task.storeDeptPlanned && !task.storeDeptActual
+      );
+      const storeHistory = processedData.filter(
+        task => task.storeDeptPlanned && task.storeDeptActual
+      );
+      setStoreData({ pending: storePending, history: storeHistory });
+
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setError(error.message);
+      toast.error(`Failed to load data: ${error.message}`);
+    } finally {
+      setLoading(false);
+      setTableLoading(false);
     }
-    
-    const result = await response.json();
-    
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to fetch data from JOINING sheet');
-    }
-    
-    const rawData = result.data || result;
-    
-    if (!Array.isArray(rawData)) {
-      throw new Error('Expected array data not received');
-    }
-
-    // Skip the header rows and process only what's needed
-    const startRow = Math.max(6, 0); // Start from row 6 or 0
-    const dataRows = rawData.slice(startRow);
-    
-    // Process data in batches to avoid blocking the UI
-    const batchSize = 50;
-    const processedData = [];
-    
-    for (let i = 0; i < dataRows.length; i += batchSize) {
-      const batch = dataRows.slice(i, i + batchSize);
-      
-      const batchProcessed = batch.map((row, index) => ({
-        // Basic Info - only extract what's needed
-        rowIndex: i + index + startRow + 1,
-        employeeCode: row[26] || '',
-        serialNumber: row[1] || '',
-        name: row[2] || '',
-        fatherName: row[3] || '',
-        dateOfJoining: row[9] || '',
-        LeavingDate: row[55] || '',
-        designation: row[5] || '',
-        department: row[20] || '',
-        reportingOfficer: row[28] || '',
-        assignAssets: row[40] || '',
-        
-        // Approval System
-        approvalPlanned: row[58] || '',
-        approvalActual: row[59] || '',
-        approvalStatus: row[61] || '',
-        
-        // Reporting Manager
-        reportingManagerPlanned: row[62] || '',
-        reportingManagerActual: row[63] || '',
-        reportingManagerStatus: row[65] || '',
-        
-        // IT Department
-        itDeptPlanned: row[66] || '',
-        itDeptActual: row[67] || '',
-        itDeptSummary: row[69] || '',
-        
-        // Admin Department
-        adminDeptPlanned: row[70] || '',
-        adminDeptActual: row[71] || '',
-        adminDeptSummary: row[73] || '',
-        
-        // Account Department
-        accountDeptPlanned: row[74] || '',
-        accountDeptActual: row[75] || '',
-        accountDeptSummary: row[77] || '',
-        
-        // Store Department
-        storeDeptPlanned: row[78] || '',
-        storeDeptActual: row[79] || '',
-        storeDeptSummary: row[81] || ''
-      }));
-      
-      processedData.push(...batchProcessed);
-      
-      // Yield to the UI thread every batch
-      if (i % batchSize === 0) {
-        await new Promise(resolve => setTimeout(resolve, 0));
-      }
-    }
-
-    // Filter data for each stage in one pass
-    const approvalPending = [];
-    const approvalHistory = [];
-    const reportingPending = [];
-    const reportingHistory = [];
-    const itPending = [];
-    const itHistory = [];
-    const adminPending = [];
-    const adminHistory = [];
-    const accountPending = [];
-    const accountHistory = [];
-    const storePending = [];
-    const storeHistory = [];
-
-    for (const item of processedData) {
-      // Approval System
-      if (item.approvalPlanned) {
-        if (!item.approvalActual) {
-          approvalPending.push(item);
-        } else {
-          approvalHistory.push(item);
-        }
-      }
-      
-      // Reporting Manager
-      if (item.reportingManagerPlanned) {
-        if (!item.reportingManagerActual) {
-          reportingPending.push(item);
-        } else {
-          reportingHistory.push(item);
-        }
-      }
-      
-      // IT Department
-      if (item.itDeptPlanned) {
-        if (!item.itDeptActual) {
-          itPending.push(item);
-        } else {
-          itHistory.push(item);
-        }
-      }
-      
-      // Admin Department
-      if (item.adminDeptPlanned) {
-        if (!item.adminDeptActual) {
-          adminPending.push(item);
-        } else {
-          adminHistory.push(item);
-        }
-      }
-      
-      // Account Department
-      if (item.accountDeptPlanned) {
-        if (!item.accountDeptActual) {
-          accountPending.push(item);
-        } else {
-          accountHistory.push(item);
-        }
-      }
-      
-      // Store Department
-      if (item.storeDeptPlanned) {
-        if (!item.storeDeptActual) {
-          storePending.push(item);
-        } else {
-          storeHistory.push(item);
-        }
-      }
-    }
-
-    // Update all state at once
-    setApprovalData({ pending: approvalPending, history: approvalHistory });
-    setReportingData({ pending: reportingPending, history: reportingHistory });
-    setItData({ pending: itPending, history: itHistory });
-    setAdminData({ pending: adminPending, history: adminHistory });
-    setAccountData({ pending: accountPending, history: accountHistory });
-    setStoreData({ pending: storePending, history: storeHistory });
-
-  } catch (error) {
-    console.error('Error fetching data:', error);
-    setError(error.message);
-    toast.error(`Failed to load data: ${error.message}`);
-  } finally {
-    setLoading(false);
-    setTableLoading(false);
-  }
-};
+  };
 
   const fetchDepartments = async () => {
     try {
-      const response = await fetch(
-        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Master&action=fetch'
-      );
-      
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success && result.data) {
-          const deptList = result.data
-            .slice(1)
-            .map(row => row[1])
-            .filter(dept => dept && dept.trim() !== '');
-          setDepartments(deptList);
-        }
+      const result = await fetchAfterLeavingMasterData();
+      if (result.success) {
+        setDepartments(result.departments);
       }
     } catch (error) {
       console.error('Error fetching departments:', error);
@@ -292,54 +169,22 @@ const fetchAllData = async (forceRefresh = false) => {
 
   const fetchSocialSiteOptions = async () => {
     try {
-      const response = await fetch(
-        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Master&action=fetch'
-      );
-      
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success && result.data) {
-          const rows = result.data.slice(1);
-          let socialSites = [];
-          
-          for (let row of rows) {
-            for (let cell of row) {
-              if (cell && typeof cell === 'string') {
-                const lowerCell = cell.toLowerCase();
-                if (lowerCell.includes('indeed') || 
-                    lowerCell.includes('naukri') || 
-                    lowerCell.includes('linkedin') ||
-                    lowerCell.includes('referral') ||
-                    lowerCell.includes('job consultancy') ||
-                    lowerCell.includes('timesjobs') ||
-                    lowerCell.includes('internshala') ||
-                    lowerCell.includes('apna') ||
-                    lowerCell.includes('workindia')) {
-                  socialSites.push(cell.trim());
-                }
-              }
-            }
-          }
-          
-          socialSites = [...new Set(socialSites)];
-          
-          if (socialSites.length === 0) {
-            socialSites = [
-              'Indeed.com',
-              'Naukri.com',
-              'LinkedIn',
-              'Referral',
-              'Job Consultancy',
-              'TimesJobs',
-              'Internshala',
-              'Apna',
-              'WorkIndia',
-              'Other'
-            ];
-          }
-          
-          setSocialSiteOptions(socialSites);
-        }
+      const result = await fetchAfterLeavingMasterData();
+      if (result.success && result.socialSites.length > 0) {
+        setSocialSiteOptions(result.socialSites);
+      } else {
+        setSocialSiteOptions([
+          'Indeed.com',
+          'Naukri.com',
+          'LinkedIn',
+          'Referral',
+          'Job Consultancy',
+          'TimesJobs',
+          'Internshala',
+          'Apna',
+          'WorkIndia',
+          'Other'
+        ]);
       }
     } catch (error) {
       console.error('Error fetching social site options:', error);
@@ -585,68 +430,6 @@ const fetchAllData = async (forceRefresh = false) => {
     setStoreForm(prev => ({ ...prev, [name]: !prev[name] }));
   };
 
-  // Generate indent number for Reporting Manager
-  const generateIndentNumber = async () => {
-    try {
-      const response = await fetch(
-        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=INDENT&action=fetch'
-      );
-      
-      const result = await response.json();
-      
-      if (result.success && result.data && result.data.length > 6) {
-        const headers = result.data[5].map(h => h ? h.trim().toLowerCase() : '');
-        let indentNumberIndex = headers.indexOf('indent number');
-        if (indentNumberIndex === -1) {
-          indentNumberIndex = 1;
-        }
-        
-        let maxNumericValue = 0;
-        
-        for (let i = 6; i < result.data.length; i++) {
-          const indentValue = result.data[i][indentNumberIndex];
-          
-          if (indentValue && indentValue.toString().trim() !== '') {
-            const match = indentValue.toString().match(/\d+/);
-            if (match) {
-              const numericValue = parseInt(match[0]);
-              if (numericValue > maxNumericValue) {
-                maxNumericValue = numericValue;
-              }
-            }
-          }
-        }
-        
-        const nextNumber = maxNumericValue + 1;
-        return `REC-${String(nextNumber).padStart(2, '0')}`;
-      }
-      return 'REC-01';
-    } catch (error) {
-      console.error('Error generating indent number:', error);
-      return 'REC-01';
-    }
-  };
-
-  const getCurrentTimestamp = () => {
-    const now = new Date();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const year = now.getFullYear();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-
-    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
-  };
-
-  const formatDateForSheet = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    const year = date.getFullYear();
-    return `${month}/${day}/${year}`;
-  };
 
   // Submit handler for all stages
   const handleSubmit = async (e) => {
@@ -660,35 +443,8 @@ const fetchAllData = async (forceRefresh = false) => {
     }
 
     try {
-      const fullDataResponse = await fetch(
-        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch'
-      );
-      
-      const fullDataResult = await fullDataResponse.json();
-      const allData = fullDataResult.data || fullDataResult;
-
-      let headerRowIndex = allData.findIndex(row =>
-        row.some(cell => cell?.toString().trim().toLowerCase().includes('employee code'))
-      );
-      if (headerRowIndex === -1) headerRowIndex = 4;
-
-      const employeeCodeIndex = 26;
-      const rowIndex = allData.findIndex((row, idx) =>
-        idx > headerRowIndex &&
-        row[employeeCodeIndex]?.toString().trim() === selectedItem.employeeCode?.toString().trim()
-      );
-      
-      if (rowIndex === -1) {
-        throw new Error(`Employee Code ${selectedItem.employeeCode} not found`);
-      }
-
-      const now = new Date();
-      const day = String(now.getDate()).padStart(2, '0');
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const year = String(now.getFullYear()).slice(-2);
-      const currentDate = `${day}/${month}/${year}`;
-
-      const updatePromises = [];
+      const updateData = {};
+      const now = new Date().toISOString();
 
       // Handle each stage differently
       switch (selectedItem.stage) {
@@ -698,77 +454,9 @@ const fetchAllData = async (forceRefresh = false) => {
             setSubmitting(false);
             return;
           }
-
-          const formatDateTime = (date) => {
-            const month = date.getMonth() + 1;
-            const day = date.getDate();
-            const year = date.getFullYear();
-            const hours = date.getHours();
-            const minutes = date.getMinutes();
-            const seconds = date.getSeconds();
-            return `${month}/${day}/${year} ${hours}:${minutes}:${seconds}`;
-          };
-
-          const formattedTimestamp = formatDateTime(now);
-
-          updatePromises.push(
-            fetch(
-              "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/x-www-form-urlencoded",
-                },
-                body: new URLSearchParams({
-                  sheetName: "JOINING",
-                  action: "updateCell",
-                  rowIndex: (rowIndex + 1).toString(),
-                  columnIndex: "60",
-                  value: formattedTimestamp,
-                }).toString(),
-              }
-            )
-          );
-
-          updatePromises.push(
-            fetch(
-              "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/x-www-form-urlencoded",
-                },
-                body: new URLSearchParams({
-                  sheetName: "JOINING",
-                  action: "updateCell",
-                  rowIndex: (rowIndex + 1).toString(),
-                  columnIndex: "62",
-                  value: approvalForm.status,
-                }).toString(),
-              }
-            )
-          );
-
-          if (approvalForm.remarks) {
-            updatePromises.push(
-              fetch(
-                "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                  },
-                  body: new URLSearchParams({
-                    sheetName: "JOINING",
-                    action: "updateCell",
-                    rowIndex: (rowIndex + 1).toString(),
-                    columnIndex: "92",
-                    value: approvalForm.remarks,
-                  }).toString(),
-                }
-              )
-            );
-          }
+          updateData.actual_after_leaving_approval_date = now;
+          updateData.after_leaving_approval_status = approvalForm.status;
+          updateData.after_leaving_approval_remarks = approvalForm.remarks;
           break;
 
         case 'reporting':
@@ -793,119 +481,34 @@ const fetchAllData = async (forceRefresh = false) => {
             }
           }
 
-          updatePromises.push(
-            fetch(
-              "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/x-www-form-urlencoded",
-                },
-                body: new URLSearchParams({
-                  sheetName: "JOINING",
-                  action: "updateCell",
-                  rowIndex: (rowIndex + 1).toString(),
-                  columnIndex: "66",
-                  value: reportingForm.reportingManagerCheck ? "Yes" : "No",
-                }).toString(),
-              }
-            )
-          );
-
-          updatePromises.push(
-            fetch(
-              "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/x-www-form-urlencoded",
-                },
-                body: new URLSearchParams({
-                  sheetName: "JOINING",
-                  action: "updateCell",
-                  rowIndex: (rowIndex + 1).toString(),
-                  columnIndex: "64",
-                  value: currentDate,
-                }).toString(),
-              }
-            )
-          );
-
-          updatePromises.push(
-            fetch(
-              "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/x-www-form-urlencoded",
-                },
-                body: new URLSearchParams({
-                  sheetName: "JOINING",
-                  action: "updateCell",
-                  rowIndex: (rowIndex + 1).toString(),
-                  columnIndex: "102",
-                  value: reportingForm.remarks || "",
-                }).toString(),
-              }
-            )
-          );
+          updateData.reporting_manager_approval_status = reportingForm.reportingManagerCheck ? "Yes" : "No";
+          updateData.actual_reporting_manager_approval_date = now;
+          updateData.reporting_manager_remarks = reportingForm.remarks || "";
+          updateData.reporting_manager_process_type = reportingForm.processType;
 
           if (reportingForm.processType === 'indent') {
-            const indentNumber = await generateIndentNumber();
-            const timestamp = getCurrentTimestamp();
-            const formattedDate = formatDateForSheet(reportingForm.indentCompetitionDate);
+            const indentNumber = await generateNextIndentNumber();
+            
+            const indentData = {
+              indent_number: indentNumber,
+              company_name: reportingForm.indentCompany,
+              post: reportingForm.indentPost,
+              gender: reportingForm.indentGender,
+              prefer: reportingForm.indentPrefer,
+              number_of_post: reportingForm.indentNumberOfPost,
+              competition_date: reportingForm.indentCompetitionDate,
+              department: reportingForm.indentDepartment,
+              experience: reportingForm.indentPrefer === 'Experience' ? reportingForm.indentExperience : "",
+              status: "Draft",
+              social_site: reportingForm.indentSocialSiteTypes.length > 0 ? reportingForm.indentSocialSiteTypes.join(', ') : "",
+            };
 
-            const indentRowData = [
-              timestamp,
-              indentNumber,
-              reportingForm.indentCompany,
-              reportingForm.indentPost,
-              reportingForm.indentGender,
-              reportingForm.indentPrefer,
-              reportingForm.indentNumberOfPost,
-              formattedDate,
-              reportingForm.indentDepartment,
-              reportingForm.indentPrefer === 'Experience' ? reportingForm.indentExperience : "",
-              "NeedMore",
-              "", "", "", "", "", "",
-              reportingForm.indentSocialSiteTypes.length > 0 ? reportingForm.indentSocialSiteTypes.join(', ') : "",
-            ];
-
-            updatePromises.push(
-              fetch(
-                "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                  },
-                  body: new URLSearchParams({
-                    sheetName: "INDENT",
-                    action: "insert",
-                    rowData: JSON.stringify(indentRowData),
-                  }).toString(),
-                }
-              )
-            );
+            const indentResult = await createIndentRecord(indentData);
+            if (!indentResult.success) {
+              throw new Error("Failed to create indent: " + indentResult.error);
+            }
           } else if (reportingForm.processType === 'temporary-backup') {
-            updatePromises.push(
-              fetch(
-                "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                  },
-                  body: new URLSearchParams({
-                    sheetName: "JOINING",
-                    action: "updateCell",
-                    rowIndex: (rowIndex + 1).toString(),
-                    columnIndex: "103",
-                    value: reportingForm.temporaryBackupName || "",
-                  }).toString(),
-                }
-              )
-            );
+            updateData.reporting_manager_temp_backup_name = reportingForm.temporaryBackupName || "";
           }
           break;
 
@@ -918,45 +521,8 @@ const fetchAllData = async (forceRefresh = false) => {
           if (itForm.emailAccess) checkedItems.push('Email Access');
           if (itForm.systemAccess) checkedItems.push('System Access');
 
-          const assetSummary = checkedItems.length > 0 ? checkedItems.join(', ') : '';
-
-          updatePromises.push(
-            fetch(
-              "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/x-www-form-urlencoded",
-                },
-                body: new URLSearchParams({
-                  sheetName: "JOINING",
-                  action: "updateCell",
-                  rowIndex: (rowIndex + 1).toString(),
-                  columnIndex: "70",
-                  value: assetSummary,
-                }).toString(),
-              }
-            )
-          );
-
-          updatePromises.push(
-            fetch(
-              "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/x-www-form-urlencoded",
-                },
-                body: new URLSearchParams({
-                  sheetName: "JOINING",
-                  action: "updateCell",
-                  rowIndex: (rowIndex + 1).toString(),
-                  columnIndex: "68",
-                  value: currentDate,
-                }).toString(),
-              }
-            )
-          );
+          updateData.it_clearance_summary = checkedItems.length > 0 ? checkedItems.join(', ') : '';
+          updateData.actual_it_clearance_date = now;
           break;
 
         case 'admin':
@@ -971,45 +537,8 @@ const fetchAllData = async (forceRefresh = false) => {
           if (adminForm.idCard) adminCheckedItems.push('ID Card');
           if (adminForm.visitingCard) adminCheckedItems.push('Visiting Card');
 
-          const adminSummary = adminCheckedItems.join(', ');
-
-          updatePromises.push(
-            fetch(
-              "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/x-www-form-urlencoded",
-                },
-                body: new URLSearchParams({
-                  sheetName: "JOINING",
-                  action: "updateCell",
-                  rowIndex: (rowIndex + 1).toString(),
-                  columnIndex: "74",
-                  value: adminSummary,
-                }).toString(),
-              }
-            )
-          );
-
-          updatePromises.push(
-            fetch(
-              "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/x-www-form-urlencoded",
-                },
-                body: new URLSearchParams({
-                  sheetName: "JOINING",
-                  action: "updateCell",
-                  rowIndex: (rowIndex + 1).toString(),
-                  columnIndex: "72",
-                  value: currentDate,
-                }).toString(),
-              }
-            )
-          );
+          updateData.admin_clearance_summary = adminCheckedItems.join(', ');
+          updateData.actual_admin_clearance_date = now;
           break;
 
         case 'account':
@@ -1025,45 +554,8 @@ const fetchAllData = async (forceRefresh = false) => {
           if (accountForm.advance) accountCheckedItems.push('Advance');
           if (accountForm.pending) accountCheckedItems.push('Pending');
 
-          const accountSummary = accountCheckedItems.join(', ');
-
-          updatePromises.push(
-            fetch(
-              "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/x-www-form-urlencoded",
-                },
-                body: new URLSearchParams({
-                  sheetName: "JOINING",
-                  action: "updateCell",
-                  rowIndex: (rowIndex + 1).toString(),
-                  columnIndex: "78",
-                  value: accountSummary,
-                }).toString(),
-              }
-            )
-          );
-
-          updatePromises.push(
-            fetch(
-              "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/x-www-form-urlencoded",
-                },
-                body: new URLSearchParams({
-                  sheetName: "JOINING",
-                  action: "updateCell",
-                  rowIndex: (rowIndex + 1).toString(),
-                  columnIndex: "76",
-                  value: currentDate,
-                }).toString(),
-              }
-            )
-          );
+          updateData.account_clearance_summary = accountCheckedItems.join(', ');
+          updateData.actual_account_clearance_date = now;
           break;
 
         case 'store':
@@ -1073,52 +565,44 @@ const fetchAllData = async (forceRefresh = false) => {
             return;
           }
 
-          updatePromises.push(
-            fetch(
-              "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/x-www-form-urlencoded",
-                },
-                body: new URLSearchParams({
-                  sheetName: "JOINING",
-                  action: "updateCell",
-                  rowIndex: (rowIndex + 1).toString(),
-                  columnIndex: "82",
-                  value: "Store Assets Handed Over",
-                }).toString(),
-              }
-            )
-          );
-
-          updatePromises.push(
-            fetch(
-              "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/x-www-form-urlencoded",
-                },
-                body: new URLSearchParams({
-                  sheetName: "JOINING",
-                  action: "updateCell",
-                  rowIndex: (rowIndex + 1).toString(),
-                  columnIndex: "80",
-                  value: currentDate,
-                }).toString(),
-              }
-            )
-          );
+          updateData.store_clearance_summary = "Store Assets Handed Over";
+          updateData.actual_store_clearance_date = now;
           break;
       }
 
-      const responses = await Promise.all(updatePromises);
-      const results = await Promise.all(responses.map((r) => r.json()));
+      const result = await updateAfterLeavingStage(selectedItem.id, selectedItem.stage, updateData);
 
-      const hasError = results.some((result) => !result.success);
-      if (hasError) {
-        throw new Error("Update failed");
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
+      // If a stage is completed, we might want to plan the next stage
+      // Sequential flow: Approval -> Reporting -> IT -> Admin -> Account -> Store
+      let nextStageData = {};
+      const nextPlannedDate = new Date().toISOString();
+
+      switch (selectedItem.stage) {
+        case 'approval':
+          if (approvalForm.status === 'Approved') {
+            nextStageData.planned_reporting_manager_approval_date = nextPlannedDate;
+          }
+          break;
+        case 'reporting':
+          nextStageData.planned_it_clearance_date = nextPlannedDate;
+          break;
+        case 'it':
+          nextStageData.planned_admin_clearance_date = nextPlannedDate;
+          break;
+        case 'admin':
+          nextStageData.planned_account_clearance_date = nextPlannedDate;
+          break;
+        case 'account':
+          nextStageData.planned_store_clearance_date = nextPlannedDate;
+          break;
+      }
+
+      if (Object.keys(nextStageData).length > 0) {
+        await updateAfterLeavingStage(selectedItem.id, 'next_stage_planning', nextStageData);
       }
 
       toast.success(`${getStageTitle(selectedItem.stage)} process completed successfully!`);
@@ -1376,9 +860,8 @@ const fetchAllData = async (forceRefresh = false) => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {formatDateForDisplay(item.dateOfJoining)}
                           </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-          {formatDateForDisplay(item.LeavingDate)}
-        </td>                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.designation}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.LeavingDate}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.designation}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.department}</td>
                           {activeStageTab === 'reporting' && (
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.reportingOfficer}</td>
@@ -1470,9 +953,8 @@ const fetchAllData = async (forceRefresh = false) => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {formatDateForDisplay(item.dateOfJoining)}
                           </td>
-<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-  {formatDateForDisplay(item.LeavingDate)}
-</td>                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.designation}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.LeavingDate}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.designation}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.department}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {stage === 'approval' ? (

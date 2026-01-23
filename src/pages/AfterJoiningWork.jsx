@@ -1,7 +1,15 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Filter, Search, Clock, CheckCircle, X } from 'lucide-react';
-import useDataStore from '../store/dataStore';
 import toast from 'react-hot-toast';
+import {
+  fetchAfterJoiningData,
+  updateAfterJoiningRecord,
+  uploadAfterJoiningFile,
+  generateNextEmployeeCode,
+  fetchReportingOfficers,
+  fetchDepartments,
+  fetchDesignations
+} from '../services/afterJoiningService';
 
 const AfterJoiningWork = () => {
   const [activeTab, setActiveTab] = useState("pending");
@@ -77,382 +85,49 @@ useEffect(() => {
     joiningPlace: "",
   });
 
-  // Cache for fetched data to prevent repeated API calls
-  const [dataCache, setDataCache] = useState({
-  joiningData: null,
-  reportingOfficers: null,
-  departments: null,
-  designations: null,
-  assetsData: {},
-  lastFetchTime: 0
-});
-
-  // Function to fetch last employee code from JOINING sheet
-  const fetchLastEmployeeCode = async () => {
+  const fetchInitialData = useCallback(async (forceRefresh = false) => {
     try {
-      const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      const rawData = result.data || result;
-
-      if (!Array.isArray(rawData) || rawData.length < 7) {
-        return null;
-      }
-
-      const employeeCodeColumnIndex = 26;
-      let highestNumber = 0;
-
-      for (let i = 6; i < rawData.length; i++) {
-        const row = rawData[i];
-        if (row && row.length > employeeCodeColumnIndex) {
-          const code = row[employeeCodeColumnIndex];
-          if (code && typeof code === 'string' && code.trim() !== "") {
-            const trimmedCode = code.trim();
-            const match = trimmedCode.match(/PMMPL-(\d+)/i);
-            if (match) {
-              const number = parseInt(match[1]);
-              if (!isNaN(number) && number > highestNumber) {
-                highestNumber = number;
-              }
-            }
-          }
-        }
-      }
-
-      if (highestNumber > 0) {
-        return `PMMPL-${highestNumber}`;
-      }
-
-      return null;
-    } catch (error) {
-      console.error("Error fetching last employee code:", error);
-      return null;
-    }
-  };
-
-  const fetchDepartments = async () => {
-    try {
-      const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
-      );
-      
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      
-      const result = await response.json();
-      const rawData = result.data || result;
-      
-      if (!Array.isArray(rawData)) return;
-      
-      const departmentsSet = new Set();
-      
-      for (let i = 6; i < rawData.length; i++) {
-        const row = rawData[i];
-        if (row && row.length > 20 && row[20]) {
-          const dept = row[20].toString().trim();
-          if (dept) departmentsSet.add(dept);
-        }
-      }
-      
-      setDepartments(Array.from(departmentsSet));
-      setDataCache(prev => ({ ...prev, departments: Array.from(departmentsSet) }));
-    } catch (error) {
-      console.error("Error fetching departments:", error);
-    }
-  };
-
-  const fetchUniqueDesignations = async () => {
-    try {
-      const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
-      );
-      
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      
-      const result = await response.json();
-      const rawData = result.data || result;
-      
-      if (!Array.isArray(rawData)) return;
-      
-      const designationsSet = new Set();
-      
-      for (let i = 6; i < rawData.length; i++) {
-        const row = rawData[i];
-        if (row && row.length > 5 && row[5]) {
-          const designation = row[5].toString().trim();
-          if (designation) designationsSet.add(designation);
-        }
-      }
-      
-      setDesignations(Array.from(designationsSet));
-      setDataCache(prev => ({ ...prev, designations: Array.from(designationsSet) }));
-    } catch (error) {
-      console.error("Error fetching designations:", error);
-    }
-  };
-
-  const generateNextEmployeeCode = async () => {
-    try {
-      const lastEmployeeCode = await fetchLastEmployeeCode();
-
-      if (!lastEmployeeCode) {
-        return "PMMPL-001";
-      }
-
-      const match = lastEmployeeCode.match(/PMMPL-(\d+)/i);
-      if (match) {
-        const lastNumber = parseInt(match[1]);
-        const nextNumber = lastNumber + 1;
-        return `PMMPL-${nextNumber.toString().padStart(3, '0')}`;
-      }
-
-      return "PMMPL-001";
-    } catch (error) {
-      console.error("Error generating next employee code:", error);
-      return "PMMPL-001";
-    }
-  };
-
-  const formatDateForDisplay = (dateString) => {
-    if (!dateString || dateString.trim() === '') return '-';
-    
-    try {
-      if (typeof dateString === 'string' && dateString.includes('/')) {
-        const parts = dateString.split('/');
-        if (parts.length === 3) {
-          const day = parseInt(parts[0], 10);
-          const month = parseInt(parts[1], 10);
-          const year = parseInt(parts[2], 10);
-          
-          if (day > 0 && day <= 31 && month > 0 && month <= 12) {
-            return dateString;
-          }
-        }
-      }
-      
-      const date = new Date(dateString);
-      if (!isNaN(date.getTime())) {
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const year = date.getFullYear();
-        return `${day}/${month}/${year}`;
-      }
-      
-      return dateString || '-';
-    } catch (error) {
-      return dateString || '-';
-    }
-  };
-
-  const fetchReportingOfficers = async () => {
-    try {
-      const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Master&action=fetch"
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-
-      if (result.success && result.data) {
-        const officers = result.data
-          .slice(1)
-          .map(row => row[1])
-          .filter(officer => officer && officer.trim() !== "");
-
-        setReportingOfficers(officers);
-        setDataCache(prev => ({ ...prev, reportingOfficers: officers }));
-      }
-    } catch (error) {
-      console.error("Error fetching reporting officers:", error);
-    }
-  };
-
-  const DRIVE_FOLDER_ID = "1Rb4DIzbZWSVyL5s_z4d0ntk0iM-JZWBq";
-
-  // OPTIMIZED: Fetch all data in parallel
-    // OPTIMIZED: Fetch all joining data with caching
-  const fetchJoiningData = useCallback(async (forceRefresh = false) => {
-    try {
+      if (!forceRefresh) setLoading(true);
       setError(null);
-      
-      // Check cache first (cache for 2 minutes)
-      const now = Date.now();
-      const CACHE_DURATION = 2 * 60 * 1000;
-      
-      if (!forceRefresh && dataCache.lastFetchTime && 
-          (now - dataCache.lastFetchTime < CACHE_DURATION) && 
-          dataCache.joiningData) {
-        
-        console.log('Using cached joining data');
-        processCachedJoiningData(dataCache.joiningData);
-        return;
-      }
-      
-      setLoading(true);
-      console.time('FetchJoiningData');
-      
-      const response = await fetch(
-        `https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch&t=${now}`
-      );
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      const [dataResult, officersResult, deptsResult, desigsResult] = await Promise.all([
+        fetchAfterJoiningData(),
+        fetchReportingOfficers(),
+        fetchDepartments(),
+        fetchDesignations()
+      ]);
+
+      if (dataResult.success) {
+        setPendingData(dataResult.pending);
+        setHistoryData(dataResult.history);
+      } else {
+        throw new Error(dataResult.error);
       }
 
-      const result = await response.json();
-      
-      console.timeEnd('FetchJoiningData');
-      
-      if (!result.success) {
-        throw new Error(result.error || "Failed to fetch data from JOINING sheet");
-      }
+      if (officersResult.success) setReportingOfficers(officersResult.data);
+      if (deptsResult.success) setDepartments(deptsResult.data);
+      if (desigsResult.success) setDesignations(desigsResult.data);
 
-      const rawData = result.data || result;
-
-      if (!Array.isArray(rawData)) {
-        throw new Error("Expected array data not received");
-      }
-
-      // Cache the data
-      setDataCache(prev => ({
-        ...prev,
-        joiningData: rawData,
-        lastFetchTime: now
-      }));
-
-      // Process data
-      processCachedJoiningData(rawData);
-
-    } catch (error) {
-      console.error("Error fetching joining data:", error);
-      setError(error.message);
+    } catch (err) {
+      console.error("Error loading data:", err);
+      setError(err.message);
+      toast.error("Failed to load data from Supabase");
     } finally {
-      setLoading(false);
+      if (!forceRefresh) setLoading(false);
     }
-  }, [dataCache]);
-
-  // Helper function to process cached joining data
-  const processCachedJoiningData = useCallback((rawData) => {
-    const dataRows = rawData.length > 6 ? rawData.slice(6) : [];
-    
-    // IMPORTANT: COPY YOUR EXACT MAPPING FROM YOUR ORIGINAL CODE HERE
-    // Look at your original fetchJoiningData function and copy lines 245-325
-    const processedData = dataRows.map((row, idx) => ({
-      timestamp: row[0] || "",
-      joiningNo: row[1] || "",
-      candidateName: row[2] || "",
-      fatherName: row[3] || "",
-      dateOfJoining: row[4] || "",
-      designation: row[5] || "",
-      aadharPhoto: row[6] || "",
-      candidatePhoto: row[7] || "",
-      currentAddress: row[8] || "",
-      bodAsPerAadhar: row[9] || "",
-      gender: row[10] || "",
-      mobileNo: row[11] || "",
-      familyMobileNo: row[12] || "",
-      relationWithFamily: row[13] || "",
-      accountNo: row[14] || "",
-      ifscCode: row[15] || "",
-      branchName: row[16] || "",
-      passbookPhoto: row[17] || "",
-      email: row[18] || "",
-      qualification: row[19] || "",
-      department: row[20] || "",
-      salary: row[21] || "",
-      aadharNo: row[22] || "",
-      resumeCopy: row[23] || "",
-      plannedDate: row[23] || "",
-      actual: row[24] || "",
-      employeeCode: row[26] || "",
-      salaryConfirmation: row[27] || "",
-      reportingOfficer: row[28] || "",
-      baseAddress: row[29] || "",
-      punchCode: row[30] || "",
-      officialEmail: row[31] || "",
-      emailPassword: row[32] || "",
-      currentBankAccountNo: row[33] || "",
-      currentBankIfsc: row[34] || "",
-      pfEsic: row[36] || "",
-      idProofCopy: row[37] || "",
-      joiningLetter: row[38] || "",
-      interviewAssessmentSheet: row[107] || "",
-      manualImageUrl: row[39] || "",
-      laptopDetails: row[40] || "",
-      laptopImage: row[41] || "",
-      mobileName: row[42] || "",
-      mobileImage: row[43] || "",
-      item1: row[44] || "",
-      item1Image: row[45] || "",
-      item2: row[46] || "",
-      item2Image: row[47] || "",
-      item3: row[49] || "",
-      item3Image: row[50] || "",
-      incentiveCategory: row[91] || "",
-      attendanceMode: row[94] || "",
-      department2: row[95] || "",
-      eligibleForPF: row[96] || "",
-      eligibleForESIC: row[97] || "",
-      remarks: row[98] || "",
-      joiningPlace: row[105] || "",
-      nextSalaryIncrementDate: row[99] || "",
-      companyName: row[100] || "",
-      bloodGroup: row[92] || "",
-      identificationMarks: row[93] || "",
-    }));
-
-    const pendingTasks = processedData.filter(
-      (task) => task.plannedDate && task.plannedDate.trim() !== "" && (!task.actual || task.actual.trim() === "")
-    );
-
-    const historyTasks = processedData.filter(
-      (task) => task.plannedDate && task.plannedDate.trim() !== "" && task.actual && task.actual.trim() !== ""
-    );
-
-    setPendingData(pendingTasks);
-    setHistoryData(historyTasks);
   }, []);
 
-  // OPTIMIZED: Load all data in parallel on component mount
-   // OPTIMIZED: Load all data in parallel on component mount
   useEffect(() => {
-    const loadAllData = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch all required data in parallel
-        await Promise.all([
-          fetchJoiningData(),
-          fetchReportingOfficers(),
-          fetchDepartments(),
-          fetchUniqueDesignations()
-        ]);
-      } catch (error) {
-        console.error("Error loading initial data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadAllData();
+    fetchInitialData();
     
     // Set up auto-refresh every 5 minutes
     const intervalId = setInterval(() => {
-      fetchJoiningData(true); // Force refresh
+      fetchInitialData(true);
     }, 5 * 60 * 1000);
     
-    // Refresh when tab becomes visible
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        fetchJoiningData(true);
+        fetchInitialData(true);
       }
     };
     
@@ -462,120 +137,33 @@ useEffect(() => {
       clearInterval(intervalId);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [fetchJoiningData]); // Add fetchJoiningData to dependencies
+  }, [fetchInitialData]);
 
-
-    // OPTIMIZED: Fetch assets data with caching
-  const fetchAssetsData = useCallback(async (employeeId) => {
+  const formatDateForDisplay = (dateString) => {
+    if (!dateString) return '-';
     try {
-      // Check cache first
-      if (dataCache.assetsData && dataCache.assetsData[employeeId]) {
-        return dataCache.assetsData[employeeId];
-      }
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+      return date.toLocaleDateString('en-GB'); // dd/mm/yyyy
+    } catch (e) {
+      return dateString;
+    }
+  };
 
-      const response = await fetch(
-        `https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Assets&action=fetch&t=${Date.now()}`
-      );
-
-      if (!response.ok) {
-        return null;
-      }
-
-      const result = await response.json();
-
-      if (!result.success) {
-        return null;
-      }
-
-      const data = result.data || result;
-      if (!Array.isArray(data) || data.length < 2) {
-        return null;
-      }
-
-      // Find matching row and cache it
-      const matchingRow = data.find((row, index) => {
-        if (index === 0) return false;
-        return row[1]?.toString().trim() === employeeId?.toString().trim();
-      });
-
-      if (matchingRow) {
-        const assetsInfo = {
-          punchCode: matchingRow[10] || "",
-          emailId: matchingRow[3] || "",
-          emailPassword: matchingRow[4] || "",
-          laptop: matchingRow[5] || "",
-          mobile: matchingRow[6] || "",
-          manualImageUrl: matchingRow[39] || "",
-          salaryConfirmation: matchingRow[11] || "",
-          reportingOfficer: matchingRow[12] || "",
-          pf: matchingRow[13] || "",
-          baseAddress: matchingRow[14] || "",
-          idProofCopyUrl: matchingRow[37] || "",
-          joiningLetterUrl: matchingRow[16] || "",
-          incentiveCategory: matchingRow[17] || "",
-        };
-        
-        // Cache the result
-        setDataCache(prev => ({
-          ...prev,
-          assetsData: {
-            ...prev.assetsData,
-            [employeeId]: assetsInfo
-          }
-        }));
-        
-        return assetsInfo;
-      }
-
-      return null;
+  // Fetch assets data from Supabase (consolidated into joining table)
+  const fetchAssetsData = useCallback(async (joiningNo) => {
+    try {
+      // In Supabase migration, we assume assets info is in the joining table
+      // Since we already fetched the full joining record in fetchInitialData,
+      // we can just find it in our state.
+      const item = [...pendingData, ...historyData].find(i => i.joiningNo === joiningNo);
+      return item || null;
     } catch (error) {
       console.error("Error fetching assets data:", error);
       return null;
     }
-  }, [dataCache]);
+  }, [pendingData, historyData]);
   
-  // Upload image to Google Drive
-  const uploadImageToDrive = async (file, fileName) => {
-    try {
-      const reader = new FileReader();
-      return new Promise((resolve, reject) => {
-        reader.onload = async () => {
-          try {
-            const base64Data = reader.result;
-            const response = await fetch(
-              "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/x-www-form-urlencoded",
-                },
-                body: new URLSearchParams({
-                  action: "uploadFile",
-                  base64Data: base64Data,
-                  fileName: fileName,
-                  mimeType: file.type,
-                  folderId: DRIVE_FOLDER_ID,
-                }).toString(),
-              }
-            );
-
-            const result = await response.json();
-            if (result.success) {
-              resolve(result.fileUrl);
-            } else {
-              reject(new Error(result.error || "Upload failed"));
-            }
-          } catch (error) {
-            reject(error);
-          }
-        };
-        reader.onerror = () => reject(new Error("Failed to read file"));
-        reader.readAsDataURL(file);
-      });
-    } catch (error) {
-      throw new Error(`Upload failed: ${error.message}`);
-    }
-  };
 
   const handleAfterJoiningClick = async (item) => {
     if (!item || !item.joiningNo) {
@@ -589,135 +177,53 @@ useEffect(() => {
     try {
       const newEmployeeCode = await generateNextEmployeeCode();
 
-      const [assetsData, fullDataResponse] = await Promise.all([
-        fetchAssetsData(item.joiningNo),
-        fetch("https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch")
-      ]);
-
-      if (!fullDataResponse.ok) {
-        throw new Error(`HTTP error! status: ${fullDataResponse.status}`);
-      }
-
-      const fullDataResult = await fullDataResponse.json();
-      const allData = fullDataResult.data || fullDataResult;
-
-      let headerRowIndex = 5;
-      const headers = allData[headerRowIndex].map((h) => h?.toString().trim());
-
-      const serialNumberIndex = headers.findIndex(
-        (h) => h?.toLowerCase() === "serialnumber"
-      );
-
-      if (serialNumberIndex === -1) {
-        throw new Error("Could not find 'serialNumber' column");
-      }
-
-      const rowIndex = allData.findIndex(
-        (row, idx) =>
-          idx > headerRowIndex &&
-          row[serialNumberIndex]?.toString().trim() ===
-          item.joiningNo?.toString().trim()
-      );
-
+      // All data is already in 'item' thanks to fetchAfterJoiningData
       setFormData({
-        employeeCode: newEmployeeCode,
-        salaryConfirmation: "",
-        salaryAmount: "",
-        reportingOfficer: "",
-        pf: "",
-        baseAddress: item.currentAddress || "",
+        employeeCode: item.employeeCode || newEmployeeCode,
+        salaryConfirmation: item.salaryConfirmation || "",
+        salaryAmount: item.salaryAmount || "",
+        reportingOfficer: item.reportingOfficer || "",
+        pf: item.pfEsic || "",
+        baseAddress: item.baseAddress || item.currentAddress || "",
         idProofCopy: null,
         joiningLetter: null,
-        biometricAccess: false,
-        punchCode: "",
-        officialEmailId: false,
-        emailId: "",
-        emailPassword: "",
-        laptop: "",
-        mobile: "",
+        interviewAssessmentSheet: null,
+        biometricAccess: item.punchCode ? true : false,
+        punchCode: item.punchCode || "",
+        officialEmailId: item.officialEmail ? true : false,
+        emailId: item.officialEmail || "",
+        emailPassword: item.emailPassword || "",
+        laptop: item.laptopDetails || "",
+        laptopImageUrl: item.laptopImage || "",
+        laptopImage: null,
+        mobile: item.mobileName || "",
+        mobileImageUrl: item.mobileImage || "",
+        mobileImage: null,
+        manualImageUrl: item.manualImageUrl || "",
         manualImage: null,
-        manualImageUrl: "",
-        assignAssets: false,
-        assets: [],
-        incentiveCategory: "",
-        attendanceMode: "",
+        assignAssets: item.item1 || item.item2 || item.item3 ? true : false,
+        assets: [
+          item.item1 ? { name: item.item1, image: null, imageUrl: item.item1Image || "" } : null,
+          item.item2 ? { name: item.item2, image: null, imageUrl: item.item2Image || "" } : null,
+          item.item3 ? { name: item.item3, image: null, imageUrl: item.item3Image || "" } : null,
+        ].filter(Boolean),
+        incentiveCategory: item.incentiveCategory || "",
+        attendanceMode: item.attendanceMode || "",
         department: item.department || "",
-        eligibleForPF: "",
-        eligibleForESIC: "",
-        remarks: "",
-        nextSalaryIncrementDate: "",
+        eligibleForPF: item.eligibleForPF || "",
+        eligibleForESIC: item.eligibleForESIC || "",
+        remarks: item.remarks || "",
+        nextSalaryIncrementDate: item.nextSalaryIncrementDate || "",
         designation: item.designation || "",
         bloodGroup: item.bloodGroup || "",
         identificationMarks: item.identificationMarks || "",
-        companyName: "",
-        joiningPlace: "",
+        companyName: item.companyName || "",
+        joiningPlace: item.joiningPlace || "",
       });
 
-      if (rowIndex !== -1) {
-        const biometricColumnIndex = 31;
-        const officialEmailColumnIndex = 32;
-        const assignAssetsColumnIndex = 33;
-
-        const currentValues = {
-          biometricAccess:
-            allData[rowIndex][biometricColumnIndex]
-              ?.toString()
-              .trim()
-              .toLowerCase() === "yes",
-          officialEmailId:
-            allData[rowIndex][officialEmailColumnIndex]
-              ?.toString()
-              .trim()
-              .toLowerCase() === "yes",
-          assignAssets:
-            allData[rowIndex][assignAssetsColumnIndex]
-              ?.toString()
-              .trim()
-              .toLowerCase() === "yes",
-        };
-
-        const finalFormData = {
-          ...currentValues,
-          employeeCode: newEmployeeCode,
-          salaryConfirmation: assetsData?.salaryConfirmation || "",
-          salaryAmount: assetsData?.salaryAmount || "",
-          reportingOfficer: assetsData?.reportingOfficer || "",
-          pf: assetsData?.pf || "",
-          baseAddress: item.currentAddress || assetsData?.baseAddress || "",
-          punchCode: assetsData?.punchCode || "",
-          emailId: assetsData?.emailId || "",
-          emailPassword: assetsData?.emailPassword || "",
-          laptop: assetsData?.laptop || "",
-          laptopImageUrl: assetsData?.laptopImageUrl || "",
-          laptopImage: null,
-          mobile: assetsData?.mobile || "",
-          mobileImageUrl: assetsData?.mobileImageUrl || "",
-          mobileImage: null,
-          manualImageUrl: assetsData?.manualImageUrl || "",
-          idProofCopy: null,
-          joiningLetter: null,
-          manualImage: null,
-          incentiveCategory: assetsData?.incentiveCategory || "", 
-          bloodGroup: item.bloodGroup || "",
-          identificationMarks: item.identificationMarks || "",
-          companyName: "",
-          department: item.department || "",
-          assets: [
-            assetsData?.item3 ? { name: assetsData.item3, image: null, imageUrl: assetsData.item3ImageUrl || "" } : null,
-            assetsData?.item4 ? { name: assetsData.item4, image: null, imageUrl: assetsData.item4ImageUrl || "" } : null,
-            assetsData?.item5 ? { name: assetsData.item5, image: null, imageUrl: assetsData.item5ImageUrl || "" } : null,
-          ].filter(Boolean),
-        };
-
-        setFormData(prev => ({
-          ...prev,
-          ...finalFormData
-        }));
-      }
-
     } catch (error) {
-      console.error("Error fetching current values:", error);
-      toast.error("Failed to load current values");
+      console.error("Error preparing form data:", error);
+      toast.error("Failed to prepare form data");
     }
   };
 
@@ -758,369 +264,131 @@ useEffect(() => {
     }
   };
 
-  const saveAssetsData = async (employeeId, employeeName, assetsData) => {
-    try {
-      const now = new Date();
-      const timestamp = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
-
-      const rowData = [
-        timestamp,
-        employeeId,
-        employeeName,
-        assetsData.emailId || "",
-        assetsData.emailPassword || "",
-        assetsData.laptop || "",
-        assetsData.mobile || "",
-        "",
-        "",
-        assetsData.manualImageUrl || "",
-        assetsData.punchCode || "",
-        assetsData.salaryConfirmation || "",
-        assetsData.reportingOfficer || "",
-        assetsData.pf || "",
-        assetsData.baseAddress || "",
-        assetsData.idProofCopyUrl || "",
-        assetsData.joiningLetterUrl || "",
-        assetsData.incentiveCategory || "",
-      ];
-
-      const existingData = await fetchAssetsData(employeeId);
-
-      if (existingData) {
-        const fetchResponse = await fetch(
-          "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Assets&action=fetch"
-        );
-        const result = await fetchResponse.json();
-        const data = result.data || result;
-
-        const rowIndex = data.findIndex((row, index) => {
-          if (index === 0) return false;
-          return row[1]?.toString().trim() === employeeId?.toString().trim();
-        });
-
-        if (rowIndex !== -1) {
-          const response = await fetch(
-            "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/x-www-form-urlencoded",
-              },
-              body: new URLSearchParams({
-                sheetName: "Assets",
-                action: "update",
-                rowIndex: (rowIndex + 1).toString(),
-                rowData: JSON.stringify(rowData),
-              }).toString(),
-            }
-          );
-          return await response.json();
-        }
-      }
-
-      const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: new URLSearchParams({
-            sheetName: "Assets",
-            action: "insert",
-            rowData: JSON.stringify(rowData),
-          }).toString(),
-        }
-      );
-
-      return await response.json();
-    } catch (error) {
-      throw new Error(`Failed to save assets data: ${error.message}`);
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
 
-    if (!selectedItem) {
-      toast.error("No item selected. Please try again.");
-      setSubmitting(false);
-      return;
-    }
-
-    if (!selectedItem.joiningNo) {
-      toast.error("Joining number is missing. Please try again.");
-      setSubmitting(false);
-      return;
-    }
-
-    if (!selectedItem.candidateName) {
-      toast.error("Candidate name is missing. Please try again.");
+    if (!selectedItem || !selectedItem.joiningNo) {
+      toast.error("No item selected or joining number missing.");
       setSubmitting(false);
       return;
     }
 
     try {
-      // Upload all images in parallel for better performance
+      // Upload images to Supabase storage
       const uploadPromises = [];
-      
-      if (formData.idProofCopy) {
-        uploadPromises.push(
-          uploadImageToDrive(
-            formData.idProofCopy,
-            `${selectedItem.joiningNo}_idproof_${Date.now()}.${formData.idProofCopy.name.split('.').pop()}`
-          ).then(url => ({ type: 'idProofCopyUrl', url }))
-        );
-      }
-      
-      if (formData.joiningLetter) {
-        uploadPromises.push(
-          uploadImageToDrive(
-            formData.joiningLetter,
-            `${selectedItem.joiningNo}_joining_${Date.now()}.${formData.joiningLetter.name.split('.').pop()}`
-          ).then(url => ({ type: 'joiningLetterUrl', url }))
-        );
-      }
-      
-      if (formData.interviewAssessmentSheet) {
-        uploadPromises.push(
-          uploadImageToDrive(
-            formData.interviewAssessmentSheet,
-            `${selectedItem.joiningNo}_interview_${Date.now()}.${formData.interviewAssessmentSheet.name.split('.').pop()}`
-          ).then(url => ({ type: 'interviewAssessmentUrl', url }))
-        );
-      }
-      
-      if (formData.laptopImage) {
-        uploadPromises.push(
-          uploadImageToDrive(
-            formData.laptopImage,
-            `${selectedItem.joiningNo}_laptop_${Date.now()}.${formData.laptopImage.name.split('.').pop()}`
-          ).then(url => ({ type: 'laptopImageUrl', url }))
-        );
-      }
-      
-      if (formData.mobileImage) {
-        uploadPromises.push(
-          uploadImageToDrive(
-            formData.mobileImage,
-            `${selectedItem.joiningNo}_mobile_${Date.now()}.${formData.mobileImage.name.split('.').pop()}`
-          ).then(url => ({ type: 'mobileImageUrl', url }))
-        );
-      }
-      
-      if (formData.manualImage) {
-        uploadPromises.push(
-          uploadImageToDrive(
-            formData.manualImage,
-            `${selectedItem.joiningNo}_manual_${Date.now()}.${formData.manualImage.name.split('.').pop()}`
-          ).then(url => ({ type: 'manualImageUrl', url }))
-        );
-      }
-
-      // Upload dynamic asset images
-      const assetImageUrls = [];
-      for (let i = 0; i < formData.assets.length; i++) {
-        const asset = formData.assets[i];
-        if (asset.image) {
-          uploadPromises.push(
-            uploadImageToDrive(
-              asset.image,
-              `${selectedItem.joiningNo}_item${i + 3}_${Date.now()}.${asset.image.name.split('.').pop()}`
-            ).then(url => ({ type: `assetImage${i}`, url, index: i }))
-          );
-        } else {
-          assetImageUrls[i] = asset.imageUrl || "";
-        }
-      }
-
-      // Wait for all uploads to complete
-      const uploadResults = await Promise.allSettled(uploadPromises);
-      
-      // Process upload results
-      let idProofCopyUrl = "";
-      let joiningLetterUrl = "";
-      let interviewAssessmentUrl = "";
-      let laptopImageUrl = formData.laptopImageUrl;
-      let mobileImageUrl = formData.mobileImageUrl;
-      let manualImageUrl = formData.manualImageUrl;
-
-      uploadResults.forEach(result => {
-        if (result.status === 'fulfilled') {
-          const { type, url, index } = result.value;
-          switch(type) {
-            case 'idProofCopyUrl':
-              idProofCopyUrl = url;
-              break;
-            case 'joiningLetterUrl':
-              joiningLetterUrl = url;
-              break;
-            case 'interviewAssessmentUrl':
-              interviewAssessmentUrl = url;
-              break;
-            case 'laptopImageUrl':
-              laptopImageUrl = url;
-              break;
-            case 'mobileImageUrl':
-              mobileImageUrl = url;
-              break;
-            case 'manualImageUrl':
-              manualImageUrl = url;
-              break;
-            default:
-              if (type.startsWith('assetImage')) {
-                assetImageUrls[index] = url;
-              }
-          }
-        }
-      });
-
-      // Save assets data
-      await saveAssetsData(selectedItem.joiningNo, selectedItem.candidateName, {
-        salaryConfirmation: formData.salaryConfirmation,
-        salaryAmount: formData.salaryAmount,
-        reportingOfficer: formData.reportingOfficer,
-        pf: formData.pf,
-        baseAddress: formData.baseAddress,
-        idProofCopyUrl: idProofCopyUrl,
-        joiningLetterUrl: joiningLetterUrl,
-        emailId: formData.emailId,
-        emailPassword: formData.emailPassword,
-        laptop: formData.laptop,
-        laptopImageUrl: laptopImageUrl,
-        mobile: formData.mobile,
-        mobileImageUrl: mobileImageUrl,
-        item3: formData.assets[0]?.name || "",
-        item3ImageUrl: assetImageUrls[0] || "",
-        item4: formData.assets[1]?.name || "",
-        item4ImageUrl: assetImageUrls[1] || "",
-        item5: formData.assets[2]?.name || "",
-        item5ImageUrl: assetImageUrls[2] || "",
-        manualImageUrl: manualImageUrl,
-        punchCode: formData.punchCode,
-        incentiveCategory: formData.incentiveCategory,
-      });
-
-      // Update JOINING sheet
-      const fullDataResponse = await fetch(
-        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
-      );
-
-      if (!fullDataResponse.ok) {
-        throw new Error(`HTTP error! status: ${fullDataResponse.status}`);
-      }
-
-      const fullDataResult = await fullDataResponse.json();
-      const allData = fullDataResult.data || fullDataResult;
-      let headerRowIndex = 5;
-
-      const headers = allData[headerRowIndex].map((h) => h?.toString().trim());
-      const serialNumberIndex = headers.findIndex(
-        (h) => h?.toLowerCase() === "serialnumber"
-      );
-
-      if (serialNumberIndex === -1) {
-        throw new Error("Could not find 'serialNumber' column");
-      }
-
-      const rowIndex = allData.findIndex(
-        (row, idx) =>
-          idx > headerRowIndex &&
-          row[serialNumberIndex]?.toString().trim() ===
-          selectedItem.joiningNo?.toString().trim()
-      );
-
-      if (rowIndex === -1) {
-        throw new Error(`Employee ${selectedItem.joiningNo} not found`);
-      }
-
-      const updateCell = (columnIndex, value) => {
-        return fetch(
-          "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: new URLSearchParams({
-              sheetName: "JOINING",
-              action: "updateCell",
-              rowIndex: (rowIndex + 1).toString(),
-              columnIndex: columnIndex.toString(),
-              value: value,
-            }).toString(),
-          }
-        );
-      };
-
-      const salaryValue = formData.salaryConfirmation === "Yes"
-        ? formData.salaryAmount
-        : formData.salaryConfirmation;
-
-      const now = new Date();
-      const actualDate = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-
-      const updates = [
-        { col: 25, val: actualDate },
-        { col: 27, val: formData.employeeCode },
-        { col: 28, val: salaryValue },
-        { col: 29, val: formData.reportingOfficer },
-        { col: 30, val: formData.baseAddress },
-        { col: 31, val: formData.biometricAccess ? formData.punchCode : "" },
-        { col: 32, val: formData.officialEmailId ? formData.emailId : "" },
-        { col: 33, val: formData.officialEmailId ? formData.emailPassword : "" },
-        { col: 34, val: selectedItem.accountNo || "" },
-        { col: 35, val: selectedItem.ifscCode || "" },
-        { col: 36, val: selectedItem.designation || "" },
-        { col: 37, val: formData.pf || "" },
-        { col: 38, val: idProofCopyUrl || "" },
-        { col: 39, val: joiningLetterUrl || "" },
-        { col: 108, val: interviewAssessmentUrl || "" },
-        { col: 40, val: manualImageUrl || "" },
-        { col: 41, val: formData.laptop },
-        { col: 42, val: laptopImageUrl },
-        { col: 43, val: formData.mobile },
-        { col: 44, val: mobileImageUrl },
-        { col: 45, val: formData.assets[0]?.name || "" },
-        { col: 46, val: assetImageUrls[0] || "" },
-        { col: 47, val: formData.assets[1]?.name || "" },
-        { col: 48, val: assetImageUrls[1] || "" },
-        { col: 49, val: formData.assets[2]?.name || "" },
-        { col: 50, val: assetImageUrls[2] || "" },
-        { col: 91, val: formData.incentiveCategory || "" },
-        { col: 95, val: formData.attendanceMode },
-        { col: 96, val: formData.department },
-        { col: 97, val: formData.eligibleForPF },
-        { col: 98, val: formData.eligibleForESIC },
-        { col: 99, val: formData.remarks },
-        { col: 100, val: formData.nextSalaryIncrementDate },
-        { col: 101, val: formData.companyName },
-        { col: 106, val: formData.joiningPlace || "" },
+      const fieldsToUpload = [
+        { key: 'idProofCopy', path: 'id_proofs' },
+        { key: 'joiningLetter', path: 'joining_letters' },
+        { key: 'interviewAssessmentSheet', path: 'interviews' },
+        { key: 'laptopImage', path: 'assets' },
+        { key: 'mobileImage', path: 'assets' },
+        { key: 'manualImage', path: 'manuals' }
       ];
 
-      // Execute all updates in parallel
-      const updatePromises = updates.map(update => updateCell(update.col, update.val));
-      const responses = await Promise.all(updatePromises);
-      const results = await Promise.all(responses.map((r) => r.json()));
-
-      const hasError = results.some((result) => !result.success);
-      if (hasError) {
-        throw new Error("Some cell updates failed");
-      }
-
-      // Clear cache and refresh data
-      setDataCache({
-        joiningData: null,
-        reportingOfficers: dataCache.reportingOfficers,
-        departments: dataCache.departments,
-        designations: dataCache.designations,
-        lastFetchTime: 0
+      fieldsToUpload.forEach(({ key, path }) => {
+        if (formData[key] instanceof File) {
+          const fileName = `${selectedItem.joiningNo}_${key}_${Date.now()}.${formData[key].name.split('.').pop()}`;
+          uploadPromises.push(
+            uploadAfterJoiningFile(formData[key], `${path}/${fileName}`)
+              .then(res => ({ key, url: res.url }))
+          );
+        }
       });
-      
-      toast.success("Data saved successfully! Item moved to history.");
+
+      // Handle dynamic assets
+      const assetUrls = [...(formData.assets.map(a => a.imageUrl || ""))];
+      formData.assets.forEach((asset, idx) => {
+        if (asset.image instanceof File) {
+          const fileName = `${selectedItem.joiningNo}_asset${idx}_${Date.now()}.${asset.image.name.split('.').pop()}`;
+          uploadPromises.push(
+            uploadAfterJoiningFile(asset.image, `assets/${fileName}`)
+              .then(res => ({ key: `asset${idx}`, url: res.url, index: idx }))
+          );
+        }
+      });
+
+      const uploadResults = await Promise.all(uploadPromises);
+      const urls = {};
+      uploadResults.forEach(res => {
+        if (res.index !== undefined) {
+          assetUrls[res.index] = res.url;
+        } else {
+          urls[res.key] = res.url;
+        }
+      });
+
+      const now = new Date();
+      const actualJoinedDate = now.toISOString();
+
+      const updateData = {
+  actual_after_joining_date: actualJoinedDate, // ✅ FIXED
+
+  employee_code: formData.employeeCode,
+  salary_confirmation:
+    formData.salaryConfirmation === "Yes"
+      ? formData.salaryAmount
+      : formData.salaryConfirmation,
+
+  reporting_officer: formData.reportingOfficer,
+  base_address: formData.baseAddress,
+
+  punch_code: formData.biometricAccess ? formData.punchCode : "",
+
+  email_id: formData.officialEmailId ? formData.emailId : "",
+  official_email_password: formData.officialEmailId
+    ? formData.emailPassword
+    : "",
+
+  pf: formData.pf || "",
+
+  id_proof_copy: urls.idProofCopy || selectedItem.idProofCopy,
+  joining_letter: urls.joiningLetter || selectedItem.joiningLetter,
+  interview_assessment_sheet:
+    urls.interviewAssessmentSheet ||
+    selectedItem.interviewAssessmentSheet,
+
+  manual_image: urls.manualImage || selectedItem.manualImageUrl,
+
+  laptop: formData.laptop,
+  laptop_image: urls.laptopImage || formData.laptopImageUrl,
+
+  mobile: formData.mobile,
+  mobile_image: urls.mobileImage || formData.mobileImageUrl,
+
+  asset1_name: formData.assets[0]?.name || "",
+  asset1_image: assetUrls[0] || "",
+
+  asset2_name: formData.assets[1]?.name || "",
+  asset2_image: assetUrls[1] || "",
+
+  asset3_name: formData.assets[2]?.name || "",
+  asset3_image: assetUrls[2] || "",
+
+  incentive_category: formData.incentiveCategory,
+
+  after_joining_attendance_mode: formData.attendanceMode,
+  after_joining_department: formData.department,
+
+  eligible_for_pf: formData.eligibleForPF,
+  eligible_for_esic: formData.eligibleForESIC,
+
+  remarks: formData.remarks,
+  next_salary_increment_date: formData.nextSalaryIncrementDate,
+
+  after_joining_company_name: formData.companyName,
+  after_joining_joining_place: formData.joiningPlace,
+};
+
+
+      const result = await updateAfterJoiningRecord(selectedItem.joiningNo, updateData);
+
+      if (!result.success) throw new Error(result.error);
+
+      toast.success("Data saved successfully to Supabase!");
       setShowModal(false);
-      fetchJoiningData();
+      fetchInitialData(true);
 
     } catch (error) {
       console.error("Update error:", error);
@@ -1269,7 +537,7 @@ useEffect(() => {
                       <td colSpan="8" className="px-6 py-12 text-center">
                         <p className="text-red-500">Error: {error}</p>
                         <button
-                          onClick={fetchJoiningData}
+                          onClick={() => fetchInitialData()}
                           className="mt-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
                         >
                           Retry
@@ -1684,7 +952,7 @@ useEffect(() => {
                   </label>
                   <input
                     type="text"
-                    value={selectedItem.accountNo}
+                    value={selectedItem.currentBankAccountNo}
                     disabled
                     className="w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-50 text-gray-500"
                   />
@@ -1695,7 +963,7 @@ useEffect(() => {
                   </label>
                   <input
                     type="text"
-                    value={selectedItem.ifscCode}
+                    value={selectedItem.currentBankIfsc}
                     disabled
                     className="w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-50 text-gray-500"
                   />

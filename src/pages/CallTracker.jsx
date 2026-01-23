@@ -1,7 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Clock, CheckCircle, X, Upload, PauseCircle, RefreshCw, Calendar, Download } from 'lucide-react';
+import { Search, Clock, CheckCircle, X, PauseCircle, RefreshCw, Calendar, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
+import {
+  fetchCallTrackerHistory,
+  createCallTrackerEntry,
+  updateEnquiryOnJoining,
+} from '../services/callTrackerService';
+import { fetchAllEnquiries } from '../services/enquiryService';
+import { fetchAllIndents } from '../services/indentService';
 
 const CallTracker = () => {
   const [activeTab, setActiveTab] = useState('pending');
@@ -20,35 +27,27 @@ const CallTracker = () => {
   
   const [enquiryData, setEnquiryData] = useState([]);
   const [historyData, setHistoryData] = useState([]);
-// Add this function near your other helper functions (around line 140)
-const formatTimestampForDisplay = (timestampString) => {
-  if (!timestampString || timestampString.trim() === '') return '-';
-  
-  try {
-    // Check if it's already in a readable format
-    if (timestampString.includes('/') && timestampString.includes(':')) {
-      return timestampString;
-    }
-    
-    // Try to parse as date
-    const date = new Date(timestampString);
-    if (!isNaN(date.getTime())) {
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      const seconds = String(date.getSeconds()).padStart(2, '0');
-      
-      return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
-    }
-    
-    return timestampString;
-  } catch (error) {
-    console.error('Error formatting timestamp:', timestampString, error);
-    return timestampString;
-  }
-};
+
+  const latestStatusMap = React.useMemo(() => {
+    const map = {};
+    historyData.forEach(entry => {
+      const key = entry.enquiryNo;
+      if (
+        !map[key] ||
+        new Date(entry.timestamp) > new Date(map[key].timestamp)
+      ) {
+        map[key] = entry;
+      }
+    });
+    return map;
+  }, [historyData]);
+
+  const latestHistoryData = Object.values(latestStatusMap);
+
+
+
+
+  // Add export functionality
   const exportToExcel = () => {
     try {
       let dataToExport = [];
@@ -202,119 +201,102 @@ const formatTimestampForDisplay = (timestampString) => {
 
   const fetchAllData = useCallback(async () => {
     try {
-      const [enquiryResponse, followUpResponse, indentResponse] = await Promise.all([
-        fetch(
-          "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=ENQUIRY&action=fetch"
-        ),
-        fetch(
-          "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Follow - Up&action=fetch"
-        ),
-        fetch(
-          "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=INDENT&action=fetch"
-        ),
+      // Fetch enquiries, call tracker history, and indents in parallel
+      const [enquiryResult, historyResult, indentResult] = await Promise.all([
+        fetchAllEnquiries(),
+        fetchCallTrackerHistory(),
+        fetchAllIndents(),
       ]);
 
-      const [enquiryResult, followUpResult, indentResult] = await Promise.all([
-        enquiryResponse.json(),
-        followUpResponse.json(),
-        indentResponse.json(),
-      ]);
-
-      // Process INDENT data to create a lookup map
+      // Process indents to create department lookup map
       let indentDepartmentMap = {};
-      if (indentResult.success && indentResult.data && indentResult.data.length >= 7) {
-        const indentHeaders = indentResult.data[5].map(h => h.trim());
-        const indentDataRows = indentResult.data.slice(6);
-
-        indentDataRows.forEach(row => {
-          const indentNo = row[indentHeaders.findIndex(h => h === 'Indent Number')];
-          const department = row[8];
-          if (indentNo) {
-            indentDepartmentMap[indentNo] = department || '';
+      if (indentResult.success && indentResult.data) {
+        indentResult.data.forEach((indent) => {
+          if (indent.indent_number) {
+            indentDepartmentMap[indent.indent_number] = indent.department || '';
           }
         });
       }
 
-      // Process enquiry data
-      if (enquiryResult.success && enquiryResult.data && enquiryResult.data.length >= 7) {
-        const enquiryHeaders = enquiryResult.data[5].map((h) => h.trim());
-        const enquiryDataFromRow7 = enquiryResult.data.slice(6);
-
-        const getIndex = (headerName) =>
-          enquiryHeaders.findIndex((h) => h === headerName);
-
-        const processedEnquiryData = enquiryDataFromRow7
-          .filter((row) => {
-            const plannedIndex = getIndex("Planned");
-            const actualIndex = getIndex("Actual");
-            const planned = row[plannedIndex];
-            const actual = row[actualIndex];
-            return planned && (!actual || actual === "");
+      // Process enquiry data for pending calls
+      if (enquiryResult.success && enquiryResult.data) {
+        const processedEnquiryData = enquiryResult.data
+          .filter((enquiry) => {
+            // Filter enquiries where planned_date exists but actual_date is null
+            return enquiry.planned && !enquiry.actual_date;
           })
-          .map((row) => {
-            const indentNo = row[getIndex("Indent Number")];
-            const departmentFromIndent = indentDepartmentMap[indentNo] || '';
+          .map((enquiry) => {
+            const indentNo = enquiry.indent_number;
+            const departmentFromIndent = indentDepartmentMap[indentNo] || enquiry.department || '';
 
             return {
-              id: row[getIndex("Timestamp")],
+              id: enquiry.id || enquiry.timestamp,
               indentNo: indentNo,
-              candidateEnquiryNo: row[getIndex("Candidate Enquiry Number")],
-              applyingForPost: row[getIndex("Applying For the Post")],
+              candidateEnquiryNo: enquiry.candidate_enquiry_number,
+              applyingForPost: enquiry.applying_for_post || '',
               department: departmentFromIndent,
-              plannedDate: row[getIndex("Planned")] || '',
-              candidateName: row[getIndex("Candidate Name")],
-              candidateDOB: row[getIndex("DOB")],
-              candidatePhone: row[getIndex("Candidate Phone Number")],
-              candidateEmail: row[getIndex("Candidate Email")],
-              previousCompany: row[getIndex("Previous Company Name")],
-              jobExperience: row[getIndex("Job Experience")] || "",
-              lastSalary: row[getIndex("Last Salary Drawn")] || "",
-              previousPosition: row[getIndex("Previous Position")] || "",
-              reasonForLeaving:
-                row[getIndex("Reason Of Leaving Previous Company")] || "",
-              maritalStatus: row[getIndex("Marital Status")] || "",
-              lastEmployerMobile: row[getIndex("Last Employer Mobile Number")] || "",
-              candidatePhoto: row[getIndex("Candidate Photo")] || "",
-              candidateResume: row[19] || "",
-              referenceBy: row[getIndex("Reference By")] || "",
-              presentAddress: row[getIndex("Present Address")] || "",
-              aadharNo: row[getIndex("Aadhar Number")] || "",
-              designation: row[getIndex("Applying For the Post")] || "",
+              plannedDate: enquiry.planned || '',
+              candidateName: enquiry.candidate_name || '',
+              candidateDOB: enquiry.candidate_dob || '',
+              candidatePhone: enquiry.candidate_phone || '',
+              candidateEmail: enquiry.candidate_email || '',
+              previousCompany: enquiry.previous_company || '',
+              jobExperience: enquiry.job_experience || '',
+              lastSalary: enquiry.last_salary || '',
+              previousPosition: enquiry.previous_position || '',
+              reasonForLeaving: enquiry.reason_for_leaving || '',
+              maritalStatus: enquiry.marital_status || '',
+              lastEmployerMobile: enquiry.last_employer_mobile || '',
+              candidatePhoto: enquiry.candidate_photo || '',
+              candidateResume: enquiry.candidate_resume || '',
+              referenceBy: enquiry.reference_by || '',
+              presentAddress: enquiry.present_address || '',
+              aadharNo: enquiry.aadhar_no || '',
+              designation: enquiry.applying_for_post || '',
             };
           });
 
         setEnquiryData(processedEnquiryData);
 
-        // Process follow-up data
-        if (followUpResult.success && followUpResult.data) {
-          const rawFollowUpData = followUpResult.data || followUpResult;
-          const followUpRows = Array.isArray(rawFollowUpData[0])
-            ? rawFollowUpData.slice(1)
-            : rawFollowUpData;
-
-          const processedFollowUpData = followUpRows.map((row) => ({
-            enquiryNo: row[1] || "",
-            status: row[2] || "",
+        // Process follow-up data from call tracker history
+        if (historyResult.success && historyResult.data) {
+          const processedFollowUpData = historyResult.data.map((entry) => ({
+            enquiryNo: entry.candidate_enquiry_number || '',
+            status: entry.status || '',
           }));
-
           setFollowUpData(processedFollowUpData);
-        }
-      }
 
-      // Process follow-up history data
-      if (followUpResult.success) {
-        const rawData = followUpResult.data || followUpResult;
-        if (Array.isArray(rawData)) {
-          const dataRows = rawData.length > 0 && Array.isArray(rawData[0]) ? rawData.slice(1) : rawData;
-          const processedData = dataRows.map(row => ({
-            timestamp: row[0] || '',
-            indentNo: row[1] || '',
-            enquiryNo: row[2] || '',
-            status: row[3] || '',
-            candidateSays: row[4] || '',
-            nextDate: row[5] || ''
-          }));
-          setHistoryData(processedData);
+          // Process history data
+          const processedHistoryData = historyResult.data.map((entry) => {
+            // Format timestamp for display
+            let formattedTimestamp = '';
+            if (entry.created_at) {
+              const date = new Date(entry.created_at);
+              const day = String(date.getDate()).padStart(2, '0');
+              const month = String(date.getMonth() + 1).padStart(2, '0');
+              const year = date.getFullYear();
+              const hours = String(date.getHours()).padStart(2, '0');
+              const minutes = String(date.getMinutes()).padStart(2, '0');
+              const seconds = String(date.getSeconds()).padStart(2, '0');
+              formattedTimestamp = `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+            }
+
+            // Format next_date for display
+            let formattedNextDate = '';
+            if (entry.next_date) {
+              formattedNextDate = formatDateForDisplay(entry.next_date);
+            }
+
+            return {
+              timestamp: formattedTimestamp || entry.timestamp || '',
+              indentNo: entry.indent_number || '',
+              enquiryNo: entry.candidate_enquiry_number || '',
+              status: entry.status || '',
+              candidateSays: entry.candidate_says || entry.details || '',
+              nextDate: formattedNextDate || '',
+            };
+          });
+          setHistoryData(processedHistoryData);
         }
       }
 
@@ -330,70 +312,42 @@ const formatTimestampForDisplay = (timestampString) => {
   }, [fetchAllData]);
 
   const pendingData = enquiryData.filter(item => {
-    const hasFinalStatus = followUpData.some(followUp =>
-      followUp.enquiryNo === item.candidateEnquiryNo &&
-      (followUp.status === 'Joining' || followUp.status === 'Reject')
-    );
-    return !hasFinalStatus;
+    const latest = latestStatusMap[item.candidateEnquiryNo];
+    // Only show in pending if there's NO call tracker entry at all
+    return !latest;
   });
+  
 
   // Helper function to format DD/MM/YYYY dates
   const formatDateForDisplay = (dateString) => {
-  if (!dateString || dateString.trim() === '') return '-';
-  
-  try {
-    // If already in DD/MM/YYYY format, return as is
-    if (typeof dateString === 'string') {
-      // Check for DD/MM/YYYY format
-      if (dateString.includes('/')) {
+    if (!dateString || dateString.trim() === '') return '-';
+    
+    try {
+      if (typeof dateString === 'string' && dateString.includes('/')) {
         const parts = dateString.split('/');
         if (parts.length === 3) {
           const day = parseInt(parts[0], 10);
           const month = parseInt(parts[1], 10);
-          // Validate day and month ranges
           if (day > 0 && day <= 31 && month > 0 && month <= 12) {
             return dateString;
           }
         }
       }
       
-      // Try to parse ISO date format (2024-01-11T18:30:00.000Z)
       const date = new Date(dateString);
-      
-      // If invalid, try YYYY-MM-DD format
-      if (isNaN(date.getTime()) && dateString.includes('-')) {
-        const cleanDateStr = dateString.split('T')[0]; // Remove time part if exists
-        const parts = cleanDateStr.split('-');
-        if (parts.length === 3) {
-          const year = parseInt(parts[0], 10);
-          const month = parseInt(parts[1], 10) - 1; // Months are 0-indexed
-          const day = parseInt(parts[2], 10);
-          const newDate = new Date(year, month, day);
-          if (!isNaN(newDate.getTime())) {
-            const formattedDay = String(newDate.getDate()).padStart(2, '0');
-            const formattedMonth = String(newDate.getMonth() + 1).padStart(2, '0');
-            const formattedYear = newDate.getFullYear();
-            return `${formattedDay}/${formattedMonth}/${formattedYear}`;
-          }
-        }
-      }
-      
-      // If date is valid, format it
       if (!isNaN(date.getTime())) {
         const day = String(date.getDate()).padStart(2, '0');
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const year = date.getFullYear();
         return `${day}/${month}/${year}`;
       }
+      
+      return dateString;
+    } catch (error) {
+      console.error('Error formatting date:', dateString, error);
+      return dateString || '-';
     }
-    
-    return dateString || '-';
-  } catch (error) {
-    console.error('Error formatting date:', dateString, error);
-    return dateString || '-';
-  }
-};
-
+  };
 
   const handleCallClick = (item) => {
     setSelectedItem(item);
@@ -413,103 +367,6 @@ const formatTimestampForDisplay = (timestampString) => {
     }));
   };
 
-  const postToSheet = async (rowData) => {
-    const URL = 'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec';
-
-    try {
-      const params = new URLSearchParams();
-      params.append('sheetName', 'Follow - Up');
-      params.append('action', 'insert');
-      params.append('rowData', JSON.stringify(rowData));
-
-      const response = await fetch(URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: params,
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || 'Server returned unsuccessful response');
-      }
-
-      return data;
-    } catch (error) {
-      console.error('Full error details:', error.message);
-      throw new Error(`Failed to update sheet: ${error.message}`);
-    }
-  };
-
-  const updateEnquirySheet = async (enquiryNo) => {
-    const URL = 'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec';
-
-    try {
-      const fetchResponse = await fetch(
-        `${URL}?sheet=ENQUIRY&action=fetch`
-      );
-
-      if (!fetchResponse.ok) {
-        throw new Error(`HTTP error! status: ${fetchResponse.status}`);
-      }
-
-      const fetchResult = await fetchResponse.json();
-
-      if (!fetchResult.success || !fetchResult.data) {
-        throw new Error('Failed to fetch ENQUIRY sheet data');
-      }
-
-      let targetRowIndex = -1;
-      const sheetData = fetchResult.data;
-
-      for (let i = 0; i < sheetData.length; i++) {
-        if (sheetData[i][2] === enquiryNo) {
-          targetRowIndex = i + 1;
-          break;
-        }
-      }
-
-      if (targetRowIndex === -1) {
-        throw new Error(`Enquiry number ${enquiryNo} not found in ENQUIRY sheet`);
-      }
-
-      const params = new URLSearchParams();
-      params.append('sheetName', 'ENQUIRY');
-      params.append('action', 'updateCell');
-      params.append('rowIndex', targetRowIndex.toString());
-      params.append('columnIndex', '27');
-
-      const response = await fetch(URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: params,
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to update ENQUIRY sheet');
-      }
-
-      return data;
-    } catch (error) {
-      console.error('Error updating ENQUIRY sheet:', error.message);
-      throw new Error(`Failed to update ENQUIRY sheet: ${error.message}`);
-    }
-  };
-
   const formatDOB = (dateString) => {
     if (!dateString) return '';
 
@@ -525,7 +382,7 @@ const formatTimestampForDisplay = (timestampString) => {
           date = new Date(parts[2], parts[1] - 1, parts[0]);
         } else {
           date = new Date(parts[2], parts[0] - 1, parts[1]);
-      }
+        }
       }
     }
     else {
@@ -555,28 +412,38 @@ const formatTimestampForDisplay = (timestampString) => {
 
     try {
       const now = new Date();
-      const day = String(now.getDate()).padStart(2, '0');
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const year = now.getFullYear();
-      const hours = String(now.getHours()).padStart(2, '0');
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-      const seconds = String(now.getSeconds()).padStart(2, '0');
+      const formattedTimestamp = now.toISOString();
 
-      const formattedTimestamp = `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+      // Format next date if provided
+      let formattedNextDate = null;
+      if (formData.nextDate) {
+        formattedNextDate = new Date(formData.nextDate).toISOString();
+      }
 
-      const rowData = [
-        formattedTimestamp,
-        selectedItem.indentNo || '',
-        selectedItem.candidateEnquiryNo || '',
-        formData.status,
-        formData.candidateSays,
-        formatDOB(formData.nextDate) || '',
-      ];
+      // Prepare call tracker entry data
+      const callTrackerData = {
+        timestamp: formattedTimestamp,
+        indent_number: selectedItem.indentNo || '',
+        candidate_enquiry_number: selectedItem.candidateEnquiryNo || '',
+        status: formData.status,
+        candidate_says: formData.candidateSays,
+        next_date: formattedNextDate,
+      };
 
-      await postToSheet(rowData);
+      // Create call tracker entry
+      const result = await createCallTrackerEntry(callTrackerData);
 
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create call tracker entry');
+      }
+
+      // If status is "Joining", update the enquiry
       if (formData.status === 'Joining') {
-        await updateEnquirySheet(selectedItem.candidateEnquiryNo);
+        const updateResult = await updateEnquiryOnJoining(selectedItem.candidateEnquiryNo);
+        if (!updateResult.success) {
+          console.warn('Failed to update enquiry on joining:', updateResult.error);
+          // Don't throw error, just log warning as call tracker entry was created
+        }
       }
 
       toast.success('Update successful!');
@@ -599,61 +466,44 @@ const formatTimestampForDisplay = (timestampString) => {
 
   // Helper functions for tabs
   const getFollowUpData = () => {
-    return historyData.filter(item => 
-      item.status === "Follow-up"
-    ).filter(item => {
-      const matchesSearch = item.enquiryNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          item.candidateSays?.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchesSearch;
-    });
+    return latestHistoryData.filter(item => item.status === "Follow-up");
   };
+  
 
   const getInterviewData = () => {
-    return historyData.filter(item => item.status === "Interview").filter(item => {
-      const matchesSearch = item.enquiryNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          item.candidateSays?.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchesSearch;
-    });
+    return latestHistoryData.filter(item => item.status === "Interview");
   };
+  
 
   const getOnHoldData = () => {
-    return historyData.filter(item => item.status === "On Hold").filter(item => {
-      const matchesSearch = item.enquiryNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          item.candidateSays?.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchesSearch;
-    });
+    return latestHistoryData.filter(item => item.status === "On Hold");
   };
+  
 
   const getHistoryData = () => {
-    return historyData.filter(item => 
-      item.status === "Joining" || 
-      item.status === "Reject" ||
-      item.status === "Negotiation"
-    ).filter(item => {
-      const matchesSearch = item.enquiryNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          item.candidateSays?.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchesSearch;
-    });
+    return latestHistoryData.filter(item =>
+      ["Joining", "Reject", "Negotiation"].includes(item.status)
+    );
   };
+  
 
   // Count functions for tabs
   const getFollowUpCount = () => {
-    return historyData.filter(item => item.status === "Follow-up").length;
+    return latestHistoryData.filter(item => item.status === "Follow-up").length;
   };
+  
 
-  const getInterviewCount = () => {
-    return historyData.filter(item => item.status === "Interview").length;
-  };
+        const getInterviewCount = () => {
+          return latestHistoryData.filter(item => item.status === "Interview").length;
+        };
 
   const getOnHoldCount = () => {
-    return historyData.filter(item => item.status === "On Hold").length;
+    return latestHistoryData.filter(item => item.status === "On Hold").length;
   };
 
   const getHistoryCount = () => {
-    return historyData.filter(item => 
-      item.status === "Joining" || 
-      item.status === "Reject" ||
-      item.status === "Negotiation"
+    return latestHistoryData.filter(item =>
+      ["Joining", "Reject", "Negotiation"].includes(item.status)
     ).length;
   };
 
@@ -863,7 +713,7 @@ const formatTimestampForDisplay = (timestampString) => {
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                         {formatDateForDisplay(item.plannedDate)}
+                          {formatDateForDisplay(item.plannedDate)}
                         </td>
                       </tr>
                     ))
@@ -981,10 +831,10 @@ const formatTimestampForDisplay = (timestampString) => {
                           {item.candidateSays}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                         {formatDateForDisplay(item.nextDate) || "-"}
+                          {item.nextDate || "-"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                         {formatTimestampForDisplay(item.timestamp) || "-"}
+                          {item.timestamp || "-"}
                         </td>
                       </tr>
                     ))
@@ -1102,10 +952,10 @@ const formatTimestampForDisplay = (timestampString) => {
                           {item.candidateSays}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatDateForDisplay(item.nextDate) || "-"}
+                          {item.nextDate || "-"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatTimestampForDisplay(item.timestamp) || "-"}
+                          {item.timestamp || "-"}
                         </td>
                       </tr>
                     ))
@@ -1223,10 +1073,10 @@ const formatTimestampForDisplay = (timestampString) => {
                           {item.candidateSays}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatDateForDisplay(item.nextDate) || "-"}
+                          {item.nextDate || "-"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                         {formatTimestampForDisplay(item.timestamp) || "-"}
+                          {item.timestamp || "-"}
                         </td>
                       </tr>
                     ))
@@ -1302,10 +1152,10 @@ const formatTimestampForDisplay = (timestampString) => {
                           {item.candidateSays}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                         {formatDateForDisplay(item.nextDate) || "-"}
+                          {item.nextDate || "-"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatTimestampForDisplay(item.timestamp) || "-"}
+                          {item.timestamp || "-"}
                         </td>
                       </tr>
                     ))

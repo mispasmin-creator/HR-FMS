@@ -1,77 +1,53 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Clock, CheckCircle, X, AlertCircle } from 'lucide-react';
-import useDataStore from '../store/dataStore';
-import toast from 'react-hot-toast';
+import React, { useState, useEffect } from "react";
+import { Search, Clock, CheckCircle, X, AlertCircle } from "lucide-react";
+import toast from "react-hot-toast";
+import {
+  fetchPendingIndentsForSocialSite,
+  fetchSocialSiteHistory,
+  updateSocialSiteInfo,
+} from "../services/socialSiteService";
 
-// Add this function before the SocialSite component
+// Format date helper
 const formatDateToDDMMYY = (dateString) => {
-  if (!dateString || dateString.trim() === '') return '';
-  
+  if (!dateString || dateString.trim() === "") return "";
+
   try {
-    // Try to parse the date string
     let date = new Date(dateString);
-    
-    // If date is invalid, try to parse as dd/mm/yyyy or dd-mm-yyyy
+
     if (isNaN(date.getTime())) {
-      // Try different date formats
       const parts = dateString.split(/[/-]/);
       if (parts.length === 3) {
         const day = parseInt(parts[0], 10);
-        const month = parseInt(parts[1], 10) - 1; // Months are 0-indexed
+        const month = parseInt(parts[1], 10) - 1;
         const year = parseInt(parts[2], 10);
-        // Handle 2-digit years
         const fullYear = year < 100 ? 2000 + year : year;
         date = new Date(fullYear, month, day);
       }
     }
-    
-    // If still invalid, return the original string
+
     if (isNaN(date.getTime())) {
       return dateString;
     }
-    
-    // Format to dd/mm/yy
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear().toString().slice(-2); // Last 2 digits
-    
+
+    const day = date.getDate().toString().padStart(2, "0");
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
+    const year = date.getFullYear().toString().slice(-2);
+
     return `${day}/${month}/${year}`;
   } catch (error) {
-    console.error('Error formatting date:', error);
-    return dateString; // Return original if formatting fails
+    console.error("Error formatting date:", error);
+    return dateString;
   }
 };
 
-// Add formatTableDate function for displaying dates in tables
-// Replace the current formatTableDate function with this:
 const formatTableDate = (dateString) => {
-  if (!dateString || dateString.trim() === '') return '-';
-  
-  // Use the same formatDateToDDMMYY function for consistency
-  const formatted = formatDateToDDMMYY(dateString);
-  
-  // If formatting failed, return original
-  if (formatted === dateString) {
-    // Try to handle different date formats
-    try {
-      const date = new Date(dateString);
-      if (!isNaN(date.getTime())) {
-        const day = date.getDate().toString().padStart(2, '0');
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const year = date.getFullYear().toString();
-        return `${day}/${month}/${year}`;
-      }
-    } catch (error) {
-      // If all fails, return original
-    }
-  }
-  
-  return formatted;
+  if (!dateString || dateString.trim() === "") return "-";
+  return dateString;
 };
 
 const SocialSite = () => {
-  const [activeTab, setActiveTab] = useState('pending');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState("pending");
+  const [searchTerm, setSearchTerm] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [pendingData, setPendingData] = useState([]);
@@ -79,103 +55,51 @@ const SocialSite = () => {
   const [submitting, setSubmitting] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
 
-  // API Base URL - centralized
-  const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec';
-
   const [formData, setFormData] = useState({
-    socialSite: '',
+    socialSite: "",
     socialSiteTypes: [],
-    jobDescription: '', // This will be text input
+    jobDescription: "",
   });
 
   // Social Site Types options
   const socialSiteOptions = [
-    'Indeed.com',
-    'Naukri.com',
-    'LinkedIn',
-    'Referral',
-    'Job Consultancy',
-    'TimesJobs',
-    'Internshala',
-    'Apna',
-    'WorkIndia',
-    'Other'
+    "Indeed.com",
+    "Naukri.com",
+    "LinkedIn",
+    "Referral",
+    "Job Consultancy",
+    "TimesJobs",
+    "Internshala",
+    "Apna",
+    "WorkIndia",
+    "Other",
   ];
 
-  // Centralized API fetch function
-  const fetchIndentData = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}?sheet=INDENT&action=fetch`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      
-      if (!result.success || !result.data || result.data.length < 7) {
-        throw new Error(result.error || 'Not enough rows in INDENT sheet data');
-      }
-      
-      return result;
-    } catch (error) {
-      console.error('Error fetching INDENT data:', error);
-      throw error;
-    }
-  };
-
-  // Fetch INDENT data for Social Site pending and history items
+  // Fetch all data from Supabase
   const fetchAllData = async () => {
     try {
-      const indentResult = await fetchIndentData();
-      
-      const headers = indentResult.data[5].map(h => h.trim());
-      const dataFromRow7 = indentResult.data.slice(6);
-      
-      const getIndex = (headerName) => headers.findIndex(h => h === headerName);
-      
-      // Process ALL data first - remove initial filtering
-      const allProcessedData = dataFromRow7
-        .filter(row => {
-          // Only include rows that have at least Column L with value
-          const columnL = row[11]; // Column L (0-indexed)
-          return columnL && columnL !== '';
-        })
-        .map(row => ({
-          id: row[getIndex('Timestamp')] || row[0],
-          indentNo: row[getIndex('Indent Number')],
-          company: row[getIndex('Company')] || '',
-          post: row[getIndex('Post')],
-          gender: row[getIndex('Gender')] || '', // Gender column
-          prefer: row[getIndex('Prefer')] || '', // Prefer column
-          numberOfEnquiry: row[6] || '', // Column G - Number Of Enquiry Need
-          positionFulfillDate: formatDateToDDMMYY(row[7] || ''), // Format Column H
-          status: row[10] || '', // Column K - Status
-          socialSitePost: row[14] || '', // Column O - Social Site Post
-          which: row[15] || '', // Column P - Which
-          columnL: row[11] || '', // Column L - Planned
-          columnM: row[12] || '', // Column M - Actual
-          jobDescription: row[20] || '', // Add this line for Column U
-        }));
-      
-      // NEW LOGIC: Separate pending and history data based on BOTH columns
-      const pendingItems = allProcessedData.filter(item => {
-        // Pending: Column L has value AND Column M is empty/null
-        return item.columnL && item.columnL !== '' && (!item.columnM || item.columnM === '');
-      });
-      
-      const historyItems = allProcessedData.filter(item => {
-        // History: BOTH Column L AND Column M have values
-        return item.columnL && item.columnL !== '' && item.columnM && item.columnM !== '';
-      });
-      
-      setPendingData(pendingItems);
-      setHistoryData(historyItems);
+      // Fetch pending indents
+      const pendingResult = await fetchPendingIndentsForSocialSite();
+      if (pendingResult.success) {
+        setPendingData(pendingResult.data);
+      } else {
+        throw new Error(
+          pendingResult.error || "Failed to fetch pending indents"
+        );
+      }
+
+      // Fetch social site history
+      const historyResult = await fetchSocialSiteHistory();
+      if (historyResult.success) {
+        setHistoryData(historyResult.data);
+      } else {
+        throw new Error(historyResult.error || "Failed to fetch history");
+      }
+
       setDataLoaded(true);
-      
     } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to fetch data');
+      console.error("Error fetching data:", error);
+      toast.error("Failed to fetch data");
     }
   };
 
@@ -185,61 +109,36 @@ const SocialSite = () => {
 
   const handleActionClick = (item) => {
     setSelectedItem(item);
-    // Pre-fill the form if Social Site already posted
     setFormData({
-      socialSite: item.socialSitePost || '',
-      socialSiteTypes: item.which ? item.which.split(',').map(s => s.trim()).filter(s => s) : [],
-      jobDescription: item.jobDescription || '', // Add this line
+      socialSite: item.social_site_post || "",
+      socialSiteTypes:
+        item.which && item.which !== "No"
+          ? item.which
+              .split(",")
+              .map((s) => s.trim())
+              .filter((s) => s)
+          : [],
+      jobDescription: item.job_description || "",
     });
     setShowModal(true);
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
   const handleSocialSiteTypeChange = (e) => {
     const { value, checked } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      socialSiteTypes: checked 
+      socialSiteTypes: checked
         ? [...prev.socialSiteTypes, value]
-        : prev.socialSiteTypes.filter(type => type !== value)
+        : prev.socialSiteTypes.filter((type) => type !== value),
     }));
-  };
-
-  // Centralized update cell function
-  const updateCell = async (rowIndex, columnIndex, value) => {
-    try {
-      const response = await fetch(API_BASE_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          sheetName: 'INDENT',
-          action: 'updateCell',
-          rowIndex: rowIndex.toString(),
-          columnIndex: columnIndex.toString(),
-          value: value
-        }),
-      });
-
-      const result = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.error || `Failed to update column ${columnIndex}`);
-      }
-      
-      return result;
-    } catch (error) {
-      console.error(`Error updating column ${columnIndex}:`, error);
-      throw error;
-    }
   };
 
   const handleSubmit = async (e) => {
@@ -247,112 +146,92 @@ const SocialSite = () => {
     setSubmitting(true);
 
     try {
-      // Find the row in INDENT sheet
-      const indentResult = await fetchIndentData();
-
-      // Find the row index
-      let rowIndex = -1;
-      for (let i = 1; i < indentResult.data.length; i++) {
-        if (indentResult.data[i][1] === selectedItem.indentNo) {
-          rowIndex = i + 1;
-          break;
-        }
+      if (!selectedItem || !selectedItem.id) {
+        throw new Error("Invalid indent selected");
       }
 
-      if (rowIndex === -1) {
-        throw new Error(`Could not find indentNo: ${selectedItem.indentNo} in INDENT sheet`);
+      const result = await updateSocialSiteInfo(selectedItem.id, formData);
+
+      if (!result.success) {
+        throw new Error(
+          result.error || "Failed to update social site information"
+        );
       }
 
-      // Get current date in Indian format (DD/MM/YYYY)
-      const currentDate = new Date();
-      const formattedDate = `${currentDate.getDate().toString().padStart(2, '0')}/${(currentDate.getMonth() + 1).toString().padStart(2, '0')}/${currentDate.getFullYear()}`;
-
-      // Prepare data for column updates
-      const socialSiteTypesString = formData.socialSiteTypes.join(', ');
-      const columnMValue = formattedDate; // Actual date in Column M
-      const columnOValue = formData.socialSite; // Social Site Post (Yes/No) in Column O  
-      const columnPValue = formData.socialSite === 'Yes' ? socialSiteTypesString : 'No'; // Which field in Column P
-      const columnUValue = formData.jobDescription || ''; // Job Description text in Column U
-
-      // Update columns using centralized function
-      await updateCell(rowIndex, 13, columnMValue); // Column M - date
-      await updateCell(rowIndex, 15, columnOValue); // Column O - Social Site Post
-      await updateCell(rowIndex, 16, columnPValue); // Column P - Which
-      await updateCell(rowIndex, 21, columnUValue); // Column U - Job Description
-
-      toast.success(`Social Site information updated successfully with date: ${formattedDate}`);
+      toast.success("Social Site information updated successfully");
       setShowModal(false);
-      fetchAllData();
-
+      await fetchAllData();
     } catch (error) {
-      console.error('Submission error:', error);
+      console.error("Submission error:", error);
       toast.error(`Error: ${error.message}`);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const filteredPendingData = pendingData.filter(item => {
-    const matchesSearch = item.post?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.indentNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.company?.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredPendingData = pendingData.filter((item) => {
+    const matchesSearch =
+      item.post?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.indent_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.company?.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesSearch;
   });
 
-  const filteredHistoryData = historyData.filter(item => {
-    const matchesSearch = item.post?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.indentNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.company?.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredHistoryData = historyData.filter((item) => {
+    const matchesSearch =
+      item.post?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.indent_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.company?.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesSearch;
   });
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-800">Social Site  </h1>
+        <h1 className="text-2xl font-bold text-gray-800">Social Site</h1>
       </div>
 
       {/* Filter and Search */}
-      <div className="bg-white p-4 rounded-lg shadow flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0 md:space-x-4">
+      <div className="flex flex-col p-4 space-y-4 bg-white rounded-lg shadow md:flex-row md:items-center md:justify-between md:space-y-0 md:space-x-4">
         <div className="flex flex-1 max-w-md">
           <div className="relative w-full">
             <input
               type="text"
               placeholder="Search by Indent No, Company or Post..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-400 border-opacity-30 rounded-lg focus:outline-none focus:ring-2 bg-white bg-opacity-10 focus:ring-indigo-500 text-gray-600"
+              className="w-full py-2 pl-10 pr-4 text-gray-600 bg-white border border-gray-400 rounded-lg border-opacity-30 focus:outline-none focus:ring-2 bg-opacity-10 focus:ring-indigo-500"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
             <Search
               size={20}
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-600 opacity-60"
+              className="absolute text-gray-600 transform -translate-y-1/2 left-3 top-1/2 opacity-60"
             />
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="overflow-hidden bg-white rounded-lg shadow">
         <div className="border-b border-gray-300 border-opacity-20">
           <nav className="flex -mb-px">
             <button
               className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                activeTab === 'pending'
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                activeTab === "pending"
+                  ? "border-indigo-500 text-indigo-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
-              onClick={() => setActiveTab('pending')}
+              onClick={() => setActiveTab("pending")}
             >
               <Clock size={16} className="inline mr-2" />
               Pending ({filteredPendingData.length})
             </button>
             <button
               className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                activeTab === 'history'
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                activeTab === "history"
+                  ? "border-indigo-500 text-indigo-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
-              onClick={() => setActiveTab('history')}
+              onClick={() => setActiveTab("history")}
             >
               <CheckCircle size={16} className="inline mr-2" />
               History ({filteredHistoryData.length})
@@ -362,55 +241,53 @@ const SocialSite = () => {
 
         {/* Tab Content */}
         <div className="p-6">
-          {activeTab === 'pending' ? (
+          {activeTab === "pending" ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Action
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Indent Number
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Company
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Post
                     </th>
-                    {/* New Columns Added */}
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Gender
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Prefer
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       No. of Enquiry
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Position Full-Fill Date
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      Completion Date
                     </th>
-                    {/* End New Columns */}
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Social Site Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Planned
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {!dataLoaded && pendingData.length === 0 ? (
                     <tr>
-                      <td colSpan="10" className="px-6 py-4 text-center text-gray-500">
+                      <td
+                        colSpan="9"
+                        className="px-6 py-4 text-center text-gray-500"
+                      >
                         Loading data...
                       </td>
                     </tr>
                   ) : filteredPendingData.length === 0 ? (
                     <tr>
-                      <td colSpan="10" className="px-6 py-12 text-center">
+                      <td colSpan="9" className="px-6 py-12 text-center">
                         <p className="text-gray-500">
                           No pending social site data found.
                         </p>
@@ -423,68 +300,63 @@ const SocialSite = () => {
                           <button
                             onClick={() => handleActionClick(item)}
                             className={`px-3 py-1 text-white rounded-md hover:bg-opacity-90 text-sm ${
-                              item.socialSitePost === 'Yes' 
-                                ? 'bg-green-600' 
-                                : item.socialSitePost === 'No'
-                                ? 'bg-red-600'
-                                : 'bg-indigo-700'
+                              item.social_site_post === "Yes"
+                                ? "bg-green-600"
+                                : item.social_site_post === "No"
+                                ? "bg-red-600"
+                                : "bg-indigo-700"
                             }`}
                           >
-                            {item.socialSitePost ? 'Edit' : 'Update'}
+                            {item.social_site_post ? "Edit" : "Update"}
                           </button>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.indentNo}
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {item.indent_number}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.company}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.post}
                         </td>
-                        {/* New Columns Data */}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.gender || '-'}
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {item.gender || "-"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.prefer || '-'}
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {item.prefer || "-"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.numberOfEnquiry || '-'}
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {item.enquiry_needed || "-"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatTableDate(item.positionFulfillDate)}
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {item.completion_date
+                            ? formatDateToDDMMYY(item.completion_date)
+                            : "-"}
                         </td>
-                        {/* End New Columns Data */}
                         <td className="px-6 py-4 whitespace-nowrap">
-                          {item.socialSitePost ? (
+                          {item.social_site_post ? (
                             <div className="flex items-center">
-                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                                item.socialSitePost === 'Yes' 
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-red-100 text-red-800'
-                              }`}>
-                                {item.socialSitePost}
+                              <span
+                                className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                  item.social_site_post === "Yes"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-red-100 text-red-800"
+                                }`}
+                              >
+                                {item.social_site_post}
                               </span>
-                              {item.which && item.which !== 'No' && (
+                              {item.which && item.which !== "No" && (
                                 <span className="ml-2 text-xs text-gray-500">
                                   ({item.which})
                                 </span>
                               )}
                             </div>
                           ) : (
-                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                            <span className="px-2 py-1 text-xs font-semibold text-yellow-800 bg-yellow-100 rounded-full">
                               Not Updated
                             </span>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.columnL ? (
-                          <span className="text-blue-600">{formatTableDate(item.columnL)}</span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </td>                  
                       </tr>
                     ))
                   )}
@@ -496,56 +368,51 @@ const SocialSite = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Indent Number
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Company
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Post
                     </th>
-                    {/* New Columns Added for History Tab */}
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Gender
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Prefer
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       No. of Enquiry
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Position Full-Fill Date
-                    </th>
-                    {/* End New Columns */}
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Social Site Post
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Which
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Job Description
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Last Updated
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {!dataLoaded && historyData.length === 0 ? (
                     <tr>
-                      <td colSpan="12" className="px-6 py-4 text-center text-gray-500">
+                      <td
+                        colSpan="10"
+                        className="px-6 py-4 text-center text-gray-500"
+                      >
                         Loading data...
                       </td>
                     </tr>
                   ) : filteredHistoryData.length === 0 ? (
                     <tr>
-                      <td colSpan="12" className="px-6 py-12 text-center">
+                      <td colSpan="10" className="px-6 py-12 text-center">
                         <p className="text-gray-500">
                           No social site history found.
                         </p>
@@ -554,57 +421,51 @@ const SocialSite = () => {
                   ) : (
                     filteredHistoryData.map((item) => (
                       <tr key={item.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.indentNo}
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {item.indent_number}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.company}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.post}
                         </td>
-                        {/* New Columns Data for History Tab */}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.gender || '-'}
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {item.gender || "-"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.prefer || '-'}
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {item.prefer || "-"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.numberOfEnquiry || '-'}
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {item.enquiry_needed || "-"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatTableDate(item.positionFulfillDate)}
-                        </td>
-                        {/* End New Columns Data */}
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                            item.socialSitePost === 'Yes' 
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {item.socialSitePost}
+                          <span
+                            className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                              item.social_site_post === "Yes"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {item.social_site_post}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.which}
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {item.which || "-"}
                         </td>
-                        <td className="px-6 py-4 whitespace-normal text-sm text-gray-900 max-w-xs">
-                          {item.jobDescription ? (
-                            <div className="max-h-20 overflow-y-auto">
-                              {item.jobDescription}
+                        <td className="max-w-xs px-6 py-4 text-sm text-gray-900 whitespace-normal">
+                          {item.job_description ? (
+                            <div className="overflow-y-auto max-h-20">
+                              {item.job_description}
                             </div>
                           ) : (
                             <span className="text-gray-400">-</span>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <span className="text-blue-600">{formatTableDate(item.columnM)}</span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                            {item.status}
-                          </span>
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {item.social_site_updated_at
+                            ? formatDateToDDMMYY(item.social_site_updated_at)
+                            : "-"}
                         </td>
                       </tr>
                     ))
@@ -617,15 +478,14 @@ const SocialSite = () => {
 
         {/* Modal */}
         {showModal && selectedItem && (
-          <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
             <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
               <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold text-gray-800">
-                    {selectedItem.socialSitePost 
-                      ? 'Edit Social Site Information' 
-                      : 'Update Social Site Information'
-                    }
+                    {selectedItem.social_site_post
+                      ? "Edit Social Site Information"
+                      : "Update Social Site Information"}
                   </h2>
                   <button
                     type="button"
@@ -637,17 +497,24 @@ const SocialSite = () => {
                 </div>
 
                 {/* Current Status Info */}
-                {selectedItem.socialSitePost && (
-                  <div className="bg-blue-50 p-3 rounded-md mb-4">
+                {selectedItem.social_site_post && (
+                  <div className="p-3 mb-4 rounded-md bg-blue-50">
                     <div className="flex items-center">
-                      <AlertCircle size={16} className="text-blue-500 mr-2" />
+                      <AlertCircle size={16} className="mr-2 text-blue-500" />
                       <span className="text-sm text-blue-700">
-                        Currently: <strong>{selectedItem.socialSitePost}</strong>
-                        {selectedItem.which && selectedItem.which !== 'No' && (
+                        Currently:{" "}
+                        <strong>{selectedItem.social_site_post}</strong>
+                        {selectedItem.which && selectedItem.which !== "No" && (
                           <span> ({selectedItem.which})</span>
                         )}
-                        {selectedItem.columnM && (
-                          <span> on {selectedItem.columnM}</span>
+                        {selectedItem.social_site_updated_at && (
+                          <span>
+                            {" "}
+                            on{" "}
+                            {formatDateToDDMMYY(
+                              selectedItem.social_site_updated_at
+                            )}
+                          </span>
                         )}
                       </span>
                     </div>
@@ -656,26 +523,26 @@ const SocialSite = () => {
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block mb-1 text-sm font-medium text-gray-700">
                       Indent Number
                     </label>
                     <input
                       type="text"
-                      value={selectedItem.indentNo}
+                      value={selectedItem.indent_number}
                       disabled
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-100 text-gray-500"
+                      className="w-full px-3 py-2 text-gray-500 bg-gray-100 border border-gray-300 rounded-md"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block mb-1 text-sm font-medium text-gray-700">
                       Social Site*
                     </label>
                     <select
                       name="socialSite"
                       value={formData.socialSite}
                       onChange={handleInputChange}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       required
                     >
                       <option value="">Select</option>
@@ -688,23 +555,25 @@ const SocialSite = () => {
                   {formData.socialSite === "Yes" && (
                     <>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block mb-1 text-sm font-medium text-gray-700">
                           Social Site Types*
                         </label>
-                        <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-300 rounded-md p-2">
+                        <div className="p-2 space-y-2 overflow-y-auto border border-gray-300 rounded-md max-h-40">
                           {socialSiteOptions.map((option) => (
                             <div key={option} className="flex items-center">
                               <input
                                 type="checkbox"
                                 id={option}
                                 value={option}
-                                checked={formData.socialSiteTypes.includes(option)}
+                                checked={formData.socialSiteTypes.includes(
+                                  option
+                                )}
                                 onChange={handleSocialSiteTypeChange}
-                                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                               />
                               <label
                                 htmlFor={option}
-                                className="ml-2 block text-sm text-gray-700"
+                                className="block ml-2 text-sm text-gray-700"
                               >
                                 {option}
                               </label>
@@ -715,7 +584,7 @@ const SocialSite = () => {
 
                       {/* Job Description Textarea */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block mb-1 text-sm font-medium text-gray-700">
                           Job Description
                         </label>
                         <textarea
@@ -726,32 +595,33 @@ const SocialSite = () => {
                           className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[100px] resize-y"
                           rows={4}
                         />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Enter the job description details that were posted on social sites.
+                        <p className="mt-1 text-xs text-gray-500">
+                          Enter the job description details that were posted on
+                          social sites.
                         </p>
                       </div>
                     </>
                   )}
                 </div>
 
-                <div className="flex justify-end space-x-2 pt-4">
+                <div className="flex justify-end pt-4 space-x-2">
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                    className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
                     disabled={submitting}
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 text-white bg-indigo-700 rounded-md hover:bg-opacity-90 flex items-center justify-center"
+                    className="flex items-center justify-center px-4 py-2 text-white bg-indigo-700 rounded-md hover:bg-opacity-90"
                     disabled={submitting}
                   >
                     {submitting ? (
                       <>
                         <svg
-                          className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                          className="w-4 h-4 mr-2 -ml-1 text-white animate-spin"
                           xmlns="http://www.w3.org/2000/svg"
                           fill="none"
                           viewBox="0 0 24 24"
@@ -784,6 +654,6 @@ const SocialSite = () => {
       </div>
     </div>
   );
-}
+};
 
 export default SocialSite;

@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Plus, X, Calendar, Clock, CheckCircle, AlertCircle, Filter, Search } from 'lucide-react';
-import useAuthStore from '../store/authStore';
-import useDataStore from '../store/dataStore';
 import toast from 'react-hot-toast';
+import { 
+  fetchLeaveManagementData, 
+  submitLeaveRequest, 
+  fetchHodNames as fetchSupabaseHodNames 
+} from '../services/leaveManagementService';
+import { fetchJoiningEmployees } from '../services/employeeService';
 
 const LeaveRequest = () => {
   const employeeId = localStorage.getItem("employeeId");
@@ -29,32 +33,14 @@ const LeaveRequest = () => {
   reason: ''
 });
 
-  const fetchHodNames = async () => {
+  const fetchHodNamesList = async () => {
     try {
-      const response = await fetch(
-        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Master&action=fetch'
-      );
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      const result = await fetchSupabaseHodNames();
+      if (result.success) {
+        setHodNames(result.data);
+      } else {
+        throw new Error(result.error);
       }
-      
-      const result = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to fetch HOD data');
-      }
-      
-      const rawData = result.data || result;
-      
-      if (!Array.isArray(rawData)) {
-        throw new Error('Expected array data not received');
-      }
-
-      // Skip the first row (header) and get HOD names from Column A (index 0)
-      const hodData = rawData.slice(1).map(row => row[0] || '').filter(name => name);
-      
-      setHodNames(hodData);
     } catch (error) {
       console.error('Error fetching HOD data:', error);
       toast.error(`Failed to load HOD data: ${error.message}`);
@@ -64,43 +50,19 @@ const LeaveRequest = () => {
   // Fetch employee data including designation
   const fetchEmployeeData = async () => {
     try {
-      const response = await fetch(
-        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch'
-      );
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to fetch employee data');
-      }
-      
-      const rawData = result.data || result;
-      
-      if (!Array.isArray(rawData)) {
-        throw new Error('Expected array data not received');
-      }
-
-      // Data starts from row 7 (index 6)
-      // Column C (index 2) contains Employee Name
-      // Column B (index 1) contains Employee ID
-      // Column F (index 5) contains Designation
-      const employeeRow = rawData.slice(6).find(row => 
-        row[2]?.toString().trim().toLowerCase() === user.Name?.toString().trim().toLowerCase()
-      );
-      
-      if (employeeRow) {
-        const employeeId = employeeRow[1] || '';
-        const designation = employeeRow[5] || '';
+      const result = await fetchJoiningEmployees();
+      if (result.success) {
+        const employee = result.data.find(emp => 
+          emp.candidateName?.toString().trim().toLowerCase() === user.Name?.toString().trim().toLowerCase()
+        );
         
-        setFormData(prev => ({
-          ...prev,
-          employeeId: employeeId,
-          designation: designation
-        }));
+        if (employee) {
+          setFormData(prev => ({
+            ...prev,
+            employeeId: employee.employeeCode,
+            designation: employee.designation
+          }));
+        }
       }
     } catch (error) {
       console.error('Error fetching employee data:', error);
@@ -108,40 +70,20 @@ const LeaveRequest = () => {
   };
 
   // Fetch employees from JOINING sheet
-  const fetchEmployees = async () => {
+  const fetchEmployeesList = async () => {
     try {
-      const response = await fetch(
-        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch'
-      );
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      const result = await fetchJoiningEmployees();
+      if (result.success) {
+        const employeeData = result.data.map((emp, index) => ({
+          id: emp.serialNumber, 
+          name: emp.candidateName,
+          designation: emp.designation,
+          rowIndex: index + 1
+        }));
+        setEmployees(employeeData);
+      } else {
+        throw new Error(result.error);
       }
-      
-      const result = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to fetch employee data');
-      }
-      
-      const rawData = result.data || result;
-      
-      if (!Array.isArray(rawData)) {
-        throw new Error('Expected array data not received');
-      }
-
-      // Data starts from row 7 (index 6)
-      // Column C is index 2 (Employee Name)
-      // Column B is index 1 (Employee ID)
-      // Column F is index 5 (Designation)
-      const employeeData = rawData.slice(6).map((row, index) => ({
-        id: row[1] || '', // Column B (Employee ID)
-        name: row[2] || '', // Column C (Employee Name)
-        designation: row[5] || '', // Column F (Designation)
-        rowIndex: index + 7 // Actual row number in sheet
-      })).filter(emp => emp.name && emp.id); // Filter out empty entries
-
-      setEmployees(employeeData);
     } catch (error) {
       console.error('Error fetching employee data:', error);
       toast.error(`Failed to load employee data: ${error.message}`);
@@ -288,55 +230,21 @@ const fetchLeaveData = async () => {
   setError(null);
 
   try {
-    const response = await fetch(
-      'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Leave Management&action=fetch'
-    );
+    const result = await fetchLeaveManagementData();
     
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    if (result.success) {
+      const processedData = result.all.filter(item => 
+        item.employeeName?.toString().trim().toLowerCase() === user.Name?.toString().trim().toLowerCase()
+      ).map(item => ({
+        ...item,
+        id: item.serialNo,
+        appliedDate: item.timestamp ? new Date(item.timestamp).toLocaleDateString() : '',
+        days: calculateDays(item.startDate, item.endDate)
+      }));
+      setLeavesData(processedData);
+    } else {
+      throw new Error(result.error);
     }
-    
-    const result = await response.json();
-    
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to fetch leave data');
-    }
-    
-    const rawData = result.data || result;
-    console.log("Raw data from API:", rawData);
-    
-    if (!Array.isArray(rawData)) {
-      throw new Error('Expected array data not received');
-    }
-
-    const dataRows = rawData.length > 1 ? rawData.slice(1) : [];
-    
-    // Process and filter data by employee name
-    // Update column indices according to your requirements:
-    // Column E (index 4) - From Date
-    // Column F (index 5) - To Date
-    // Column L (index 11) - Leave Type
-    const processedData = dataRows
-      .map((row, index) => ({
-        id: index + 1,
-        timestamp: row[0] || '',
-        serialNo: row[1] || '',
-        employeeId: row[2] || '',
-        employeeName: row[3] || '',
-        startDate: row[4] || '', // Column E (index 4) - From Date
-        endDate: row[5] || '',   // Column F (index 5) - To Date
-        reason: row[6] || '',
-        days: calculateDays(row[4], row[5]),
-        status: row[7] || 'Pending',
-        leaveType: row[8] || '', // Column L (index 11) - Leave Type
-        appliedDate: row[0] || '', // Using timestamp as applied date
-        approvedBy: row[9] || '',
-      }))
-      .filter(item => item.employeeName === user.Name);
-    
-    console.log("Filtered leave data:", processedData);
-    setLeavesData(processedData);
-   
   } catch (error) {
     console.error('Error fetching leave data:', error);
     setError(error.message);
@@ -349,9 +257,9 @@ const fetchLeaveData = async () => {
 
   useEffect(() => {
     fetchLeaveData();
-    fetchEmployees();
+    fetchEmployeesList();
     fetchEmployeeData();
-    fetchHodNames();
+    fetchHodNamesList();
   }, []);
 
 const handleSubmit = async (e) => {
@@ -364,64 +272,33 @@ const handleSubmit = async (e) => {
 
   try {
     setSubmitting(true);
+    
+    // In this component, formData.employeeId holds the employee code string
+    const leaveDataToSubmit = {
+      ...formData,
+      employeeCode: formData.employeeId
+    };
 
-   const now = new Date();
-
-// Format timestamp as DD/MM/YYYY HH:MM:SS
-const day = String(now.getDate()).padStart(2, '0');
-const month = String(now.getMonth() + 1).padStart(2, '0');
-const year = now.getFullYear();
-const hours = String(now.getHours()).padStart(2, '0');
-const minutes = String(now.getMinutes()).padStart(2, '0');
-const seconds = String(now.getSeconds()).padStart(2, '0');
-const formattedTimestamp = `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
-
-    const rowData = [
-      formattedTimestamp,           // Timestamp
-      "",                          // Serial number (empty for auto-increment)
-      formData.employeeId,         // Employee ID
-      formData.employeeName,       // Employee Name
-      formatDOB(formData.fromDate), // Leave Date Start (formatted to dd/mm/yyyy)
-      formatDOB(formData.toDate),   // Leave Date End (formatted to dd/mm/yyyy)
-      formData.reason,             // Reason
-      "Pending",                   // Status
-      formData.leaveType,          // Leave Type (Column L, index 11)
-      formData.hodName,            // HOD Name
-      formData.designation,        // Designation
-    ];
-
-    const response = await fetch('https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec', {
-      method: 'POST',
-      body: new URLSearchParams({
-        sheetName: 'Leave Management',
-        action: 'insert',
-        rowData: JSON.stringify(rowData),
-      }),
-    });
-
-    const result = await response.json();
+    const result = await submitLeaveRequest(leaveDataToSubmit);
 
     if (result.success) {
-  toast.success('Leave Request submitted successfully!');
-  
-  // Refresh the data immediately to update the button state
-  await fetchLeaveData();
-  
-  setFormData({
-    employeeId: employeeId,
-    employeeName: user.Name || '',
-    designation: formData.designation || '',
-    hodName: '',
-    leaveType: '',
-    fromDate: '',
-    toDate: '',
-    reason: ''
-  });
-  setShowModal(false);
-      // Refresh the data
-      fetchLeaveData();
+      toast.success('Leave Request submitted successfully!');
+      
+      await fetchLeaveData();
+      
+      setFormData({
+        employeeId: formData.employeeId,
+        employeeName: user.Name || '',
+        designation: formData.designation || '',
+        hodName: '',
+        leaveType: '',
+        fromDate: '',
+        toDate: '',
+        reason: ''
+      });
+      setShowModal(false);
     } else {
-      toast.error('Failed to insert: ' + (result.error || 'Unknown error'));
+      toast.error('Failed to submit: ' + (result.error || 'Unknown error'));
     }
   } catch (error) {
     console.error('Insert error:', error);
@@ -432,19 +309,10 @@ const formattedTimestamp = `${day}/${month}/${year} ${hours}:${minutes}:${second
 };
 
 const hasSubmittedToday = () => {
-  const today = new Date();
-  const todayStr = `${today.getMonth() + 1}/${today.getDate()}/${today.getFullYear()}`;
+  const today = new Date().toLocaleDateString();
   
   return leavesData.some(leave => {
-    // Case-insensitive employee name comparison
-    if (!leave.timestamp || !leave.employeeName || 
-        leave.employeeName.toLowerCase().trim() !== user.Name.toLowerCase().trim()) {
-      return false;
-    }
-    
-    // Extract date part from timestamp (M/D/YYYY H:M:S format from sheet)
-    const timestampDate = leave.timestamp.split(' ')[0];
-    return timestampDate === todayStr;
+    return leave.appliedDate === today;
   });
 };
   const leaveTypes = [

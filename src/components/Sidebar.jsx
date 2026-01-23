@@ -36,6 +36,14 @@ import {
 
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
+import { fetchAllIndents } from '../services/indentService';
+import { fetchAfterJoiningData } from '../services/afterJoiningService';
+import { fetchPendingIndentsForSocialSite } from '../services/socialSiteService';
+import { fetchSiesEmployees } from '../services/siesEmployeeService';
+import { fetchPendingJoiningCandidates } from '../services/joiningService';
+import { fetchPendingEnquiries } from '../services/callTrackerService';
+import { fetchLeavingData } from '../services/leavingService';
+
 
 const Sidebar = ({ onClose }) => {
 
@@ -137,73 +145,31 @@ useEffect(() => {
 useEffect(() => {
   const fetchPendingFindEnquiryCount = async () => {
     try {
-      // Fetch INDENT data
-      const response = await fetch(
-        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=INDENT&action=fetch'
-      );
+      const result = await fetchAllIndents();
       
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      
-      if (result.success && result.data && result.data.length >= 7) {
-        const headers = result.data[5].map(h => h ? h.trim() : '');
-        const dataFromRow7 = result.data.slice(6);
-        
-        const getIndex = (headerName) => headers.findIndex(h => h === headerName);
-        
-        // Get column indices
-        const statusIndex = getIndex('Status');
-        const planned2Index = getIndex('Planned 2');
-        const actual2Index = getIndex('Actual 2');
-        
-        console.log('Column indices:', { statusIndex, planned2Index, actual2Index });
-        console.log('Headers:', headers);
-        
+      if (result.success && result.data) {
         let count = 0;
         
-        dataFromRow7.forEach((row, index) => {
-          try {
-            const status = row[statusIndex];
-            const planned2 = row[planned2Index];
-            const actual2 = row[actual2Index];
-            
-            // Debug first few rows
-            if (index < 3) {
-              console.log(`Row ${index + 7}:`, {
-                status: status,
-                planned2: planned2,
-                actual2: actual2,
-                rowData: row
-              });
-            }
-            
-            const isValidStatus = status === 'Pending';
-            const hasPlanned2 = planned2 && String(planned2).trim() !== '';
-            const noActual2 = !actual2 || String(actual2).trim() === '';
-            
-            if (isValidStatus && hasPlanned2 && noActual2) {
-              count++;
-              console.log(`Found pending at row ${index + 7}:`, {
-                indentNo: row[getIndex('Indent Number')],
-                post: row[getIndex('Post')]
-              });
-            }
-          } catch (rowError) {
-            console.error(`Error processing row ${index + 7}:`, rowError);
+        result.data.forEach((item) => {
+          const status = (item.status || "").toString().trim();
+          const planned2 = (item.planned_2 || "").toString().trim();
+          const actual2 = (item.actual_2 || "").toString().trim();
+          
+          // Match the logic: Status='Pending', has Planned 2, no Actual 2
+          const isValidStatus = status.toLowerCase() === 'pending';
+          const hasPlanned2 = planned2 !== '';
+          const noActual2 = actual2 === '';
+          
+          if (isValidStatus && hasPlanned2 && noActual2) {
+            count++;
           }
         });
         
-        console.log(`Total pending find enquiry count: ${count}`);
+        console.log('Total pending find enquiry count (Supabase):', count);
         setPendingFindEnquiryCount(count);
-      } else {
-        console.error('Invalid data structure:', result);
-        setPendingFindEnquiryCount(0);
       }
     } catch (error) {
-      console.error('Error fetching pending find enquiry count:', error);
+      console.error('Error fetching pending find enquiry count from Supabase:', error);
       setPendingFindEnquiryCount(0);
     }
   };
@@ -217,6 +183,7 @@ useEffect(() => {
 }, [user?.Admin]);
 
 
+
 // Add this useEffect after the other count fetching useEffects in Sidebar
 // In Sidebar component - REPLACE the existing fetchPendingAfterJoiningCount function
 
@@ -225,62 +192,12 @@ useEffect(() => {
 useEffect(() => {
   const fetchPendingAfterJoiningCount = async () => {
     try {
-      const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      const result = await fetchAfterJoiningData();
+      if (result.success) {
+        setPendingAfterJoiningCount(result.pending.length);
       }
-
-      const result = await response.json();
-      console.log("Raw JOINING API response for sidebar:", result);
-
-      if (!result.success) {
-        throw new Error(result.error || "Failed to fetch data from JOINING sheet");
-      }
-
-      const rawData = result.data || result;
-
-      if (!Array.isArray(rawData)) {
-        throw new Error("Expected array data not received");
-      }
-
-      // Match EXACTLY the same logic as AfterJoiningWork.js
-      const processedData = rawData.slice(6).map((row, idx) => {
-        const item = {
-          plannedDate: row[23] || "",  // Column Y (index 24) - Planned Date
-          actual: row[24] || "",       // Column Z (index 25) - Actual
-          // Add other fields if needed for debugging
-          candidateName: row[2] || "", // Column C - Candidate Name
-          joiningNo: row[1] || "",     // Column B - Joining No
-        };
-        return item;
-      });
-
-      // EXACT SAME LOGIC as AfterJoiningWork.js
-      const pendingTasks = processedData.filter(
-        (task) => task.plannedDate && 
-        task.plannedDate.trim() !== "" && 
-        (!task.actual || task.actual.trim() === "")
-      );
-
-      console.log("EXACT MATCH - Pending after joining count:", pendingTasks.length);
-      
-      // Debug: List all pending items
-      pendingTasks.forEach((task, index) => {
-        console.log(`Pending ${index + 1}:`, {
-          name: task.candidateName,
-          joiningNo: task.joiningNo,
-          plannedDate: task.plannedDate,
-          actual: task.actual
-        });
-      });
-
-      setPendingAfterJoiningCount(pendingTasks.length);
-
     } catch (error) {
-      console.error("Error fetching pending after joining count:", error);
+      console.error("Error fetching pending after joining count from Supabase:", error);
       setPendingAfterJoiningCount(0);
     }
   };
@@ -293,51 +210,35 @@ useEffect(() => {
 }, [user?.Admin]);
 
 
+
 useEffect(() => {
   const fetchPendingIndentCount = async () => {
     try {
-      const response = await fetch(
-        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=INDENT&action=fetch'
-      );
+      const result = await fetchAllIndents();
       
-      const result = await response.json();
-      
-      if (result.success && result.data && result.data.length >= 7) {
-        const headers = result.data[5].map(h => h ? h.trim() : '');
-        const dataFromRow7 = result.data.slice(6);
-        
-        // Find status column index
-        const statusIndex = headers.findIndex(h => h === 'Status');
-        
+      if (result.success && result.data) {
         let pendingCount = 0;
         
-        dataFromRow7.forEach((row, index) => {
-          const status = row[statusIndex] || '';
-          const statusStr = status.toString().trim().toLowerCase();
+        result.data.forEach((item) => {
+          const statusStr = (item.status || "").toString().trim().toLowerCase();
           
           // Count as pending if status is NOT complete/fulfilled
-          // Based on your Indent component logic
           const isComplete = [
             'complete', 
             'completed', 
-            'fulfilled',
             'fulfilled'
           ].includes(statusStr);
           
-          const hasContent = row.some(cell => 
-            cell && cell.toString().trim() !== ''
-          );
-          
-          if (hasContent && !isComplete) {
+          if (!isComplete) {
             pendingCount++;
           }
         });
         
-        console.log('Pending indent count:', pendingCount);
+        console.log('Pending indent count (Supabase):', pendingCount);
         setPendingIndentCount(pendingCount);
       }
     } catch (error) {
-      console.error('Error fetching pending indent count:', error);
+      console.error('Error fetching pending indent count from Supabase:', error);
     }
   };
 
@@ -353,30 +254,13 @@ useEffect(() => {
 useEffect(() => {
   const fetchPendingSocialSiteCount = async () => {
     try {
-      const response = await fetch(
-        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=INDENT&action=fetch'
-      );
+      const result = await fetchPendingIndentsForSocialSite();
       
-      const result = await response.json();
-      
-      if (result.success && result.data && result.data.length >= 7) {
-        const dataFromRow7 = result.data.slice(6);
-        let count = 0;
-        
-        dataFromRow7.forEach(row => {
-          const columnL = row[11]; // Column L (0-indexed)
-          const columnM = row[12]; // Column M (0-indexed)
-          
-          // Pending: Column L not null and Column M null/empty
-          if (columnL && columnL !== '' && (!columnM || columnM === '')) {
-            count++;
-          }
-        });
-        
-        setPendingSocialSiteCount(count);
+      if (result.success && result.data) {
+        setPendingSocialSiteCount(result.data.length);
       }
     } catch (error) {
-      console.error('Error fetching pending social site count:', error);
+      console.error('Error fetching pending social site count from Supabase:', error);
     }
   };
 
@@ -387,169 +271,48 @@ useEffect(() => {
     return () => clearInterval(interval);
   }
 }, [user?.Admin]);
+
 // Add this useEffect after the other useEffect hooks
 
-// Add this useEffect after the other count fetching useEffects in Sidebar
-useEffect(() => {
-  const fetchPendingJoiningCount = async () => {
-    try {
-      // Fetch data from both ENQUIRY and Follow-Up sheets
-      const [enquiryResponse, followUpResponse] = await Promise.all([
-        fetch("https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=ENQUIRY&action=fetch"),
-        fetch("https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Follow - Up&action=fetch")
-      ]);
-
-      const [enquiryResult, followUpResult] = await Promise.all([
-        enquiryResponse.json(),
-        followUpResponse.json()
-      ]);
-
-      if (enquiryResult.success && enquiryResult.data && enquiryResult.data.length >= 7) {
-        // Process enquiry data headers
-        const enquiryHeaders = enquiryResult.data[5].map((h) => h.trim());
-        const enquiryDataFromRow7 = enquiryResult.data.slice(6);
-        
-        const getIndex = (headerName) =>
-          enquiryHeaders.findIndex((h) => h === headerName);
-        
-        // Get indices for required columns
-        const plannedDateIndex = 27; // Column AB (0-indexed)
-        const actualJoiningDateIndex = 28; // Column AC (0-indexed)
-        const candidateEnquiryNoIndex = getIndex("Candidate Enquiry Number");
-        
-        if (candidateEnquiryNoIndex === -1) {
-          console.error("Candidate Enquiry Number column not found");
-          return;
-        }
-        
-        // Process follow-up data to get items with "Joining" status
-        let joiningEnquiryNumbers = [];
-        
-        if (followUpResult.success && followUpResult.data) {
-          const rawFollowUpData = followUpResult.data || followUpResult;
-          const followUpRows = Array.isArray(rawFollowUpData[0])
-            ? rawFollowUpData.slice(1)
-            : rawFollowUpData;
-          
-          // Get enquiry numbers with "Joining" status
-          followUpRows.forEach((row) => {
-            const enquiryNo = row[2] || ""; // Column C (index 2) - Enquiry No
-            const status = row[3] || "";    // Column D (index 3) - Status
-            if (enquiryNo && status === 'Joining') {
-              joiningEnquiryNumbers.push(enquiryNo);
-            }
-          });
-        }
-        
-        // Count pending items
-        let pendingCount = 0;
-        
-        enquiryDataFromRow7.forEach((row) => {
-          const enquiryNo = row[candidateEnquiryNoIndex];
-          const plannedDate = row[plannedDateIndex];
-          const actualJoiningDate = row[actualJoiningDateIndex];
-          
-          // Check conditions:
-          // 1. Has "Joining" status in follow-up
-          // 2. Has planned date
-          // 3. Does NOT have actual joining date
-          if (joiningEnquiryNumbers.includes(enquiryNo) &&
-              plannedDate && plannedDate.toString().trim() !== "" &&
-              (!actualJoiningDate || actualJoiningDate.toString().trim() === "")) {
-            pendingCount++;
+  useEffect(() => {
+    const fetchPendingJoiningCount = async () => {
+      try {
+        if (user?.Admin === "Yes") {
+          const result = await fetchPendingJoiningCandidates();
+          if (result.success) {
+            setPendingJoiningCount(result.data.length);
           }
-        });
-        
-        setPendingJoiningCount(pendingCount);
+        }
+      } catch (error) {
+        console.error("Error fetching pending joining count:", error);
+        setPendingJoiningCount(0);
       }
-    } catch (error) {
-      console.error('Error fetching pending joining count:', error);
-    }
-  };
+    };
 
-  if (user?.Admin === 'Yes') {
     fetchPendingJoiningCount();
-    // Refresh every 30 seconds
     const interval = setInterval(fetchPendingJoiningCount, 30000);
     return () => clearInterval(interval);
-  }
-}, [user?.Admin]);
+  }, [user?.Admin]);
 
-
-useEffect(() => {
-  const fetchPendingCallTrackerCount = async () => {
-    try {
-      // Fetch data from both ENQUIRY and Follow-Up sheets
-      const [enquiryResponse, followUpResponse] = await Promise.all([
-        fetch("https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=ENQUIRY&action=fetch"),
-        fetch("https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=Follow - Up&action=fetch")
-      ]);
-
-      const [enquiryResult, followUpResult] = await Promise.all([
-        enquiryResponse.json(),
-        followUpResponse.json()
-      ]);
-
-      if (enquiryResult.success && enquiryResult.data && enquiryResult.data.length >= 7) {
-        // Process enquiry data
-        const enquiryHeaders = enquiryResult.data[5].map((h) => h.trim());
-        const enquiryDataFromRow7 = enquiryResult.data.slice(6);
-        
-        const getIndex = (headerName) =>
-          enquiryHeaders.findIndex((h) => h === headerName);
-        
-        // Filter enquiry items that have Planned but not Actual
-        const pendingEnquiryItems = enquiryDataFromRow7.filter((row) => {
-          const plannedIndex = getIndex("Planned");
-          const actualIndex = getIndex("Actual");
-          const planned = row[plannedIndex];
-          const actual = row[actualIndex];
-          return planned && (!actual || actual === "");
-        });
-
-        // Get all enquiry numbers from pending items
-        const pendingEnquiryNumbers = pendingEnquiryItems.map(row => 
-          row[getIndex("Candidate Enquiry Number")]
-        ).filter(Boolean);
-
-        // Process follow-up data to check which items have final status
-        let finalStatusEnquiryNumbers = [];
-        
-        if (followUpResult.success && followUpResult.data) {
-          const rawFollowUpData = followUpResult.data || followUpResult;
-          const followUpRows = Array.isArray(rawFollowUpData[0])
-            ? rawFollowUpData.slice(1)
-            : rawFollowUpData;
-
-          // Get enquiry numbers that have "Joining" or "Reject" status
-          followUpRows.forEach((row) => {
-            const enquiryNo = row[2] || ""; // Column C - Enquiry No
-            const status = row[3] || "";    // Column D - Status
-            if (enquiryNo && (status === 'Joining' || status === 'Reject')) {
-              finalStatusEnquiryNumbers.push(enquiryNo);
-            }
-          });
+  useEffect(() => {
+    const fetchPendingCallTrackerCount = async () => {
+      try {
+        if (user?.Admin === "Yes") {
+          const result = await fetchPendingEnquiries();
+          if (result.success) {
+            setPendingCallTrackerCount(result.data.length);
+          }
         }
-
-        // Count pending items: items in pendingEnquiryNumbers but not in finalStatusEnquiryNumbers
-        const trulyPendingCount = pendingEnquiryNumbers.filter(enquiryNo => 
-          !finalStatusEnquiryNumbers.includes(enquiryNo)
-        ).length;
-
-        setPendingCallTrackerCount(trulyPendingCount);
+      } catch (error) {
+        console.error("Error fetching pending call tracker count:", error);
+        setPendingCallTrackerCount(0);
       }
-    } catch (error) {
-      console.error('Error fetching pending call tracker count:', error);
-    }
-  };
+    };
 
-  if (user?.Admin === 'Yes') {
     fetchPendingCallTrackerCount();
-    // Refresh every 30 seconds
     const interval = setInterval(fetchPendingCallTrackerCount, 30000);
     return () => clearInterval(interval);
-  }
-}, [user?.Admin]);
+  }, [user?.Admin]);
 
 // Add this useEffect after the other count fetching useEffects in Sidebar
 useEffect(() => {
@@ -983,70 +746,33 @@ useEffect(() => {
 
   // Add this useEffect after the other count fetching useEffects in Sidebar
 useEffect(() => {
-  const fetchPendingLeavingCount = async () => {
-    try {
-      const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      const rawData = result.data || result;
-
-      if (!Array.isArray(rawData) || rawData.length < 7) {
-        console.log("No data found or insufficient rows");
+    const fetchPendingLeavingCount = async () => {
+      try {
+        if (user?.Admin === "Yes") {
+          const result = await fetchLeavingData();
+          if (result.success) {
+            // Count where planned_leaving_date is present and actual_leaving_date is null
+            // We need to check if the result.pending contains the necessary data.
+            // Based on Sidebar.jsx original logic, it filtered from standard data structure.
+            // fetchLeavingData from leavingService currently returns all active employees as 'pending'.
+            // To be precise, we filter for those who have a planned leaving date.
+            const pendingLeaving = result.pending.filter(item => 
+              item.planned_leaving_date && !item.actual_leaving_date
+            );
+            setPendingLeavingCount(pendingLeaving.length);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching pending leaving count:", error);
         setPendingLeavingCount(0);
-        return;
       }
+    };
 
-      console.log("Raw data for pending leaving count:", rawData.length, "rows");
-
-      // Process data starting from row 7 (index 6)
-      const dataRows = rawData.length > 6 ? rawData.slice(6) : [];
-      
-      let pendingCount = 0;
-      
-      dataRows.forEach((row, idx) => {
-        // Column indices (0-based):
-        // Column AZ = index 51
-        // Column BA = index 52
-        const columnAZ = row[51]; // Column AZ
-        const columnBA = row[52]; // Column BA
-        
-        // Debug logging for first few rows
-        if (idx < 5) {
-          console.log(`Row ${idx + 7}: Column AZ = "${columnAZ}", Column BA = "${columnBA}"`);
-        }
-        
-        // Condition: Column AZ has value AND Column BA is empty
-        if (columnAZ && columnAZ.toString().trim() !== "" && 
-            (!columnBA || columnBA.toString().trim() === "")) {
-          pendingCount++;
-          
-          // Log the matching row
-          console.log(`Found pending leaving: Row ${idx + 7}, AZ = "${columnAZ}", BA = "${columnBA}"`);
-        }
-      });
-
-      console.log("Total pending leaving count:", pendingCount);
-      setPendingLeavingCount(pendingCount);
-
-    } catch (error) {
-      console.error('Error fetching pending leaving count:', error);
-      setPendingLeavingCount(0);
-    }
-  };
-
-  if (user?.Admin === 'Yes') {
     fetchPendingLeavingCount();
     // Refresh every 30 seconds
     const interval = setInterval(fetchPendingLeavingCount, 30000);
     return () => clearInterval(interval);
-  }
-}, [user?.Admin]);
+  }, [user?.Admin]);
 
 
 // Add this useEffect after the other count fetching useEffects in Sidebar
@@ -1120,77 +846,16 @@ useEffect(() => {
 useEffect(() => {
   const fetchSiesEmployeesCount = async () => {
     try {
-      const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=SIES EMPLOYEES&action=fetch"
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      const rawData = result.data || result;
-
-      if (!Array.isArray(rawData)) {
-        console.log("No data found in SIES EMPLOYEES sheet");
-        setSiesEmployeesCount(0);
-        return;
-      }
-
-      console.log("Raw SIES employees data:", rawData.length, "rows total");
-
-      let activeCount = 0;
+      const result = await fetchSiesEmployees();
       
-      if (rawData.length > 1) {
-        // Start from row 2 (index 1) to skip header
-        const dataRows = rawData.slice(1);
-        const headers = rawData[0] || [];
-        
-        // Find column indices
-        const nameIndex = headers.findIndex(header => 
-          header?.toString().trim().toLowerCase().includes('name') ||
-          header?.toString().trim().toLowerCase().includes('employee')
-        );
-        
-        const statusIndex = headers.findIndex(header => 
-          header?.toString().trim().toLowerCase().includes('status')
-        );
-        
-        console.log("Name column index:", nameIndex);
-        console.log("Status column index:", statusIndex);
-        
-        // Count rows that have employee name AND status is Active (not Inactive/Deleted)
-        dataRows.forEach((row, idx) => {
-          // Get employee name
-          const employeeName = nameIndex >= 0 ? row[nameIndex] : row[1] || '';
-          const hasName = employeeName.toString().trim() !== '';
-          
-          // Get status
-          const status = statusIndex >= 0 ? row[statusIndex] : '';
-          const statusStr = status.toString().trim().toLowerCase();
-          
-          // Count as active if has name AND status is not "inactive" or "deleted"
-          const isActive = hasName && 
-                         statusStr !== 'inactive' && 
-                         statusStr !== 'deleted' &&
-                         statusStr !== 'relieved';
-          
-          if (isActive) {
-            activeCount++;
-            
-            // Log first few active employees for debugging
-            if (idx < 3) {
-              console.log(`Active SIES employee ${idx + 2}:`, employeeName, "Status:", status);
-            }
-          }
-        });
+      if (result.success && result.data) {
+        // Count only Active employees
+        const activeCount = result.data.filter(emp => emp.status === 'Active').length;
+        console.log("Total active SIES employees (Supabase):", activeCount);
+        setSiesEmployeesCount(activeCount);
       }
-
-      console.log("Total active SIES employees:", activeCount);
-      setSiesEmployeesCount(activeCount);
-
     } catch (error) {
-      console.error('Error fetching SIES employees count:', error);
+      console.error('Error fetching SIES employees count from Supabase:', error);
       setSiesEmployeesCount(0);
     }
   };

@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Filter, Search, Clock, CheckCircle, ImageIcon } from "lucide-react";
 import useDataStore from "../store/dataStore";
+import { fetchJoiningEmployees, fetchLeavingEmployees } from "../services/employeeService";
+import toast from "react-hot-toast";
 
 const Employee = () => {
   const [activeTab, setActiveTab] = useState("joining");
@@ -58,69 +60,13 @@ const fetchJoiningData = async () => {
   setError(null);
 
   try {
-    const response = await fetch(
-      "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
-    console.log("Raw JOINING API response:", result);
+    const result = await fetchJoiningEmployees();
 
     if (!result.success) {
-      throw new Error(
-        result.error || "Failed to fetch data from JOINING sheet"
-      );
+      throw new Error(result.error || "Failed to fetch data from joining table");
     }
 
-    const rawData = result.data || result;
-
-    if (!Array.isArray(rawData)) {
-      throw new Error("Expected array data not received");
-    }
-
-    const headers = rawData[5];
-    const dataRows = rawData.length > 6 ? rawData.slice(6) : [];
-
-    const processedData = dataRows.map((row) => ({
-      serialNumber: row[1] || "",
-      employeeCode: row[26] || "",
-      candidateName: row[2] || "",
-      fatherName: row[3] || "",
-      dateOfJoining: row[4] || "",
-      designation: row[5] || "",
-      aadharPhoto: row[6] || "",
-      candidatePhoto: row[7] || "",
-      address: row[8] || "",
-      dateOfBirth: row[9] || "",
-      gender: row[10] || "",
-      mobileNo: row[11] || "",
-      familyNo: row[12] || "",
-      relationshipWithFamily: row[13] || "",
-      accountNo: row[14] || "",
-      ifsc: row[15] || "",
-      branch: row[16] || "",
-      passbook: row[17] || "",
-      emailId: row[18] || "",
-      department: row[20] || "",
-      aadharNo: row[21] || "",
-      status: row[82] || "", // Column CE (index 82)
-      columnY: row[24] || "",
-    }));
-
-    // Filter logic: 
-    // 1. Show in joining tab if status is NOT "Leaved"
-    // 2. Filter out blank rows (where candidateName is empty)
-    const activeEmployees = processedData.filter((employee) => {
-      const statusFilter = !employee.status || employee.status.toLowerCase() !== "leaved";
-      const notBlankRow = employee.candidateName && employee.candidateName.trim() !== "";
-      
-      return statusFilter && notBlankRow;
-    });
-
-    setJoiningData(activeEmployees);
+    setJoiningData(result.data);
   } catch (error) {
     console.error("Error fetching joining data:", error);
     setError(error.message);
@@ -133,62 +79,19 @@ const fetchJoiningData = async () => {
 
 
 
- const fetchLeavingData = async () => {
+const fetchLeavingData = async () => {
   setLoading(true);
   setTableLoading(true);
   setError(null);
 
   try {
-    const response = await fetch(
-      "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
+    const result = await fetchLeavingEmployees();
 
     if (!result.success) {
-      throw new Error(
-        result.error || "Failed to fetch data from LEAVING sheet"
-      );
+      throw new Error(result.error || "Failed to fetch data from leaving table");
     }
 
-    const rawData = result.data || result;
-
-    if (!Array.isArray(rawData)) {
-      throw new Error("Expected array data not received");
-    }
-
-    const dataRows = rawData.length > 6 ? rawData.slice(6) : [];
-
-    const processedData = dataRows.map((row) => ({
-      timestamp: row[0] || "",
-      serialNumber: row[1] || "",
-      employeeCode: row[26] || "",
-      name: row[2] || "",
-      dateOfLeaving: row[55] || "",
-      mobileNo: row[11] || "",
-      reasonOfLeaving: row[56] || "",
-      firmName: row[6] || "",
-      fatherName: row[3] || "",
-      dateOfJoining: row[4] || "",
-      workingLocation: row[9] || "",
-      designation: row[5] || "",
-      salary: row[11] || "",
-      plannedDate: row[12] || "",
-      actual: row[13] || "",
-      status: row[82] || "", // Column CE (index 82)
-      department: row[20] || "",
-    }));
-
-    // Filter logic: Show in leaving tab if status is "Leaved"
-    const leavingEmployees = processedData.filter(
-      (employee) => employee.status && employee.status.toLowerCase() === "leaved"
-    );
-
-    setLeavingData(leavingEmployees);
+    setLeavingData(result.data);
   } catch (error) {
     console.error("Error fetching leaving data:", error);
     setError(error.message);

@@ -13,6 +13,11 @@ import {
   Download,
   RefreshCw
 } from 'lucide-react';
+import { 
+  fetchSiesEmployees as fetchSiesEmployeesSupabase, 
+  addSiesEmployee, 
+  updateSiesEmployeeStatus 
+} from '../services/siesEmployeeService';
 
 const SiesEmployees = () => {
   const [employees, setEmployees] = useState([]);
@@ -40,102 +45,16 @@ const SiesEmployees = () => {
   const fetchSiesEmployees = async () => {
     try {
       setLoading(true);
-      const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=SIES EMPLOYEES&action=fetch"
-      );
+      const result = await fetchSiesEmployeesSupabase();
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      const rawData = result.data || result;
-
-      if (!Array.isArray(rawData)) {
-        console.log("No data found in SIES EMPLOYEES sheet");
+      if (result.success) {
+        setEmployees(result.data);
+      } else {
+        console.error("Error fetching SIES employees:", result.error);
         setEmployees([]);
-        return;
       }
-
-      console.log("Raw SIES employees data:", rawData);
-
-      // Process the data starting from row 2 (index 1) to skip header
-      const processedEmployees = [];
-      if (rawData.length > 1) {
-        const headers = rawData[0] || [];
-        const dataRows = rawData.slice(1);
-        
-        // Map column indices based on your sheet structure
-        const columnMap = {
-          serialNo: headers.findIndex(header => 
-            header?.toString().trim().toLowerCase().includes('s.no') || 
-            header?.toString().trim().toLowerCase().includes('serial')
-          ),
-          employeeId: headers.findIndex(header => 
-            header?.toString().trim().toLowerCase().includes('employee id')
-          ),
-          name: headers.findIndex(header => 
-            header?.toString().trim().toLowerCase().includes('name')
-          ),
-          designation: headers.findIndex(header => 
-            header?.toString().trim().toLowerCase().includes('designation')
-          ),
-          salary: headers.findIndex(header => 
-            header?.toString().trim().toLowerCase().includes('salary')
-          ),
-          aadhaarCardNo: headers.findIndex(header => 
-            header?.toString().trim().toLowerCase().includes('aadhaar') ||
-            header?.toString().trim().toLowerCase().includes('adhaar')
-          ),
-          panCardNo: headers.findIndex(header => 
-            header?.toString().trim().toLowerCase().includes('pan card')
-          ),
-          address: headers.findIndex(header => 
-            header?.toString().trim().toLowerCase().includes('address')
-          ),
-          joinDate: headers.findIndex(header => 
-            header?.toString().trim().toLowerCase().includes('join date')
-          ),
-          mobileNo: headers.findIndex(header => 
-            header?.toString().trim().toLowerCase().includes('mobile')
-          ),
-          status: headers.findIndex(header => 
-            header?.toString().trim().toLowerCase().includes('status')
-          )
-        };
-
-        console.log("Column mapping:", columnMap);
-
-        // Process each row
-        dataRows.forEach((row, index) => {
-          const employee = {
-            id: index + 1,
-            serialNo: columnMap.serialNo >= 0 ? row[columnMap.serialNo] : row[0] || '',
-            employeeId: columnMap.employeeId >= 0 ? row[columnMap.employeeId] : row[1] || '',
-            name: columnMap.name >= 0 ? row[columnMap.name] : row[2] || '',
-            designation: columnMap.designation >= 0 ? row[columnMap.designation] : row[3] || '',
-            salary: columnMap.salary >= 0 ? row[columnMap.salary] : row[4] || '',
-            aadhaarCardNo: columnMap.aadhaarCardNo >= 0 ? row[columnMap.aadhaarCardNo] : row[5] || '',
-            panCardNo: columnMap.panCardNo >= 0 ? row[columnMap.panCardNo] : row[6] || '',
-            address: columnMap.address >= 0 ? row[columnMap.address] : row[7] || '',
-            joinDate: columnMap.joinDate >= 0 ? row[columnMap.joinDate] : row[8] || '',
-            mobileNo: columnMap.mobileNo >= 0 ? row[columnMap.mobileNo] : row[9] || '',
-            status: columnMap.status >= 0 ? row[columnMap.status] : row[10] || 'Active'
-          };
-
-          // Only process rows that have at least a name and employee ID
-          if (employee.name && employee.name.toString().trim() !== '' && 
-              employee.employeeId && employee.employeeId.toString().trim() !== '') {
-            processedEmployees.push(employee);
-          }
-        });
-      }
-
-      console.log("Processed employees:", processedEmployees);
-      setEmployees(processedEmployees);
-
     } catch (error) {
-      console.error('Error fetching SIES employees:', error);
+      console.error('Error in fetchSiesEmployees:', error);
       setEmployees([]);
     } finally {
       setLoading(false);
@@ -198,28 +117,7 @@ const SiesEmployees = () => {
 
       setLoading(true);
 
-      // Prepare data for submission
-      const formData = new FormData();
-      formData.append('action', 'addEmployee');
-      formData.append('name', newEmployee.name);
-      formData.append('designation', newEmployee.designation);
-      formData.append('salary', newEmployee.salary);
-      formData.append('aadhaarCardNo', newEmployee.aadhaarCardNo);
-      formData.append('panCardNo', newEmployee.panCardNo);
-      formData.append('address', newEmployee.address);
-      formData.append('joinDate', newEmployee.joinDate);
-      formData.append('mobileNo', newEmployee.mobileNo);
-
-      // Call the Google Apps Script endpoint
-      const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
-        {
-          method: 'POST',
-          body: formData
-        }
-      );
-
-      const result = await response.json();
+      const result = await addSiesEmployee(newEmployee);
 
       if (result.success) {
         alert('Employee added successfully! Employee ID: ' + result.employeeId);
@@ -259,20 +157,7 @@ const SiesEmployees = () => {
     try {
       setLoading(true);
 
-      const formData = new FormData();
-      formData.append('action', 'relieveEmployee');
-      formData.append('employeeId', selectedEmployee.employeeId);
-      formData.append('remarks', 'Marked as inactive from SIES Employees page');
-
-      const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec",
-        {
-          method: 'POST',
-          body: formData
-        }
-      );
-
-      const result = await response.json();
+      const result = await updateSiesEmployeeStatus(selectedEmployee.employeeId, 'Inactive');
 
       if (result.success) {
         alert('Employee marked as inactive successfully!');

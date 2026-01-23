@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Users, Clock, CheckCircle, Eye, X, Download, Upload, Share } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { 
+  fetchJoiningHistory, 
+  createJoiningRecord, 
+  fetchPendingJoiningCandidates,
+  uploadJoiningFile,
+  generateNextJoiningSerial,
+  confirmJoining
+} from '../services/joiningService';
+import { fetchAllEnquiries } from '../services/enquiryService';
 
 const Joining = () => {
   const [activeTab, setActiveTab] = useState('pending');
@@ -16,10 +25,6 @@ const Joining = () => {
   const [followUpData, setFollowUpData] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
-
- const [forceRefresh, setForceRefresh] = useState(false);
-const [retryCount, setRetryCount] = useState(0);
-const maxRetries = 3;
   const [shareFormData, setShareFormData] = useState({
     recipientName: '',
     recipientEmail: '',
@@ -156,305 +161,75 @@ const maxRetries = 3;
     }));
   };
 
-const fetchJoiningData = async (isRetry = false) => {
-  if (isRetry) {
-    setRetryCount(prev => prev + 1);
-  } else {
-    setRetryCount(0);
-  }
-  
-  setLoading(true);
-  setTableLoading(true);
-  setError(null);
+const fetchJoiningData = async () => {
+    setLoading(true);
+    setTableLoading(true);
+    setError(null);
 
-  try {
-    // Clear cache if force refresh is requested
-    if (forceRefresh) {
-      localStorage.removeItem('joiningDataCache');
-      localStorage.removeItem('joiningDataTimestamp');
-      setForceRefresh(false);
-    }
+    try {
+      const [pendingResult, historyResult] = await Promise.all([
+        fetchPendingJoiningCandidates(),
+        fetchJoiningHistory()
+      ]);
 
-    // Cache key for storing data
-    const cacheKey = 'joiningDataCache';
-    const cacheTimestampKey = 'joiningDataTimestamp';
-    const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache
+      if (!pendingResult.success) throw new Error(pendingResult.error);
+      if (!historyResult.success) throw new Error(historyResult.error);
 
-    // Check if we have cached data that's still valid
-    const cachedData = localStorage.getItem(cacheKey);
-    const cachedTimestamp = localStorage.getItem(cacheTimestampKey);
-    const now = Date.now();
+      // Process pending data to match component expects
+      const processedPendingData = pendingResult.data.map(item => ({
+        id: item.id,
+        indentNo: item.indent_number || "",
+        candidateEnquiryNo: item.candidate_enquiry_number,
+        applyingForPost: item.applying_for_post || "",
+        department: item.department || "",
+        candidateName: item.candidate_name || "",
+        candidatePhone: item.candidate_phone || "",
+        candidateEmail: item.candidate_email || "",
+        aadharNo: item.aadhar_no || "",
+        presentAddress: item.present_address || "",
+        candidatePhoto: item.candidate_photo || "",
+        candidateResume: item.candidate_resume || "",
+        plannedDate: item.planned || "",
+        actualJoiningDate: item.actual || "",
+        designation: item.applying_for_post || ""
+      }));
 
-    if (cachedData && cachedTimestamp && (now - parseInt(cachedTimestamp)) < CACHE_DURATION && !isRetry) {
-      const { joiningData: cachedJoiningData, historyData: cachedHistoryData } = JSON.parse(cachedData);
-      console.log("Using cached data - Pending:", cachedJoiningData.length, "History:", cachedHistoryData.length);
-      setJoiningData(cachedJoiningData);
-      setHistoryData(cachedHistoryData);
+      // Process history data to match component expects
+      const processedHistoryData = historyResult.data.map(item => ({
+        id: item.id,
+        indentNo: item.enquiries?.indent_number || "",
+        candidateEnquiryNo: item.enquiry_no,
+        applyingForPost: item.enquiries?.applying_for_post || "",
+        department: item.department || item.enquiries?.department || "",
+        candidateName: item.name_as_per_aadhar || item.enquiries?.candidate_name || "",
+        candidatePhone: item.mobile_no || item.enquiries?.candidate_phone || "",
+        candidateEmail: item.personal_email || item.enquiries?.candidate_email || "",
+        aadharNo: item.aadhar_card_no || item.enquiries?.aadhar_no || "",
+        presentAddress: item.current_address || item.enquiries?.present_address || "",
+        candidatePhoto: item.candidate_photo || item.enquiries?.candidate_photo || "",
+        candidateResume: item.enquiries?.candidate_resume || "",
+        dateOfJoining: item.date_of_joining,
+        designation: item.designation,
+        serialNo: item.serial_no,
+        previousCompanyName: item.previous_company_name,
+        previousCompanyAddress: item.previous_company_address,
+        offerLetter: item.offer_letter,
+        incrementLetter: item.increment_letter,
+        paySlip: item.pay_slip,
+        resignationLetter: item.resignation_letter
+      }));
+
+      setJoiningData(processedPendingData);
+      setHistoryData(processedHistoryData);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      setError(error.message);
+      toast.error("Failed to fetch data from Supabase");
+    } finally {
       setLoading(false);
       setTableLoading(false);
-      return;
-    }
-
-    // Fetch data from multiple sheets
-    const baseUrl = "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec";
-    
-    const [enquiryResponse, followUpResponse, joiningResponse] = await Promise.all([
-      fetch(`${baseUrl}?sheet=ENQUIRY&action=fetch`).then(r => r.json()),
-      fetch(`${baseUrl}?sheet=Follow%20-%20Up&action=fetch`).then(r => r.json()),
-      fetch(`${baseUrl}?sheet=JOINING&action=fetch`).then(r => r.json())
-    ]);
-
-    // Process ENQUIRY data
-    if (!enquiryResponse.success) {
-      throw new Error(enquiryResponse.error || "Failed to fetch ENQUIRY data");
-    }
-
-    const enquiryHeaders = enquiryResponse.data[5] || [];
-    const enquiryRows = enquiryResponse.data.slice(6) || [];
-
-    // Find column indices with fallback
-    const findColumnIndex = (headerName) => {
-      return enquiryHeaders.findIndex(h => 
-        h && h.toString().trim().toLowerCase() === headerName.toLowerCase()
-      );
-    };
-
-    const columnIndices = {
-      timestamp: findColumnIndex("Timestamp") !== -1 ? findColumnIndex("Timestamp") : 0,
-      indentNo: findColumnIndex("Indent Number") !== -1 ? findColumnIndex("Indent Number") : 1,
-      enquiryNo: findColumnIndex("Candidate Enquiry Number") !== -1 ? findColumnIndex("Candidate Enquiry Number") : 2,
-      position: findColumnIndex("Applying For the Post") !== -1 ? findColumnIndex("Applying For the Post") : 3,
-      department: findColumnIndex("Department") !== -1 ? findColumnIndex("Department") : 4,
-      name: findColumnIndex("Candidate Name") !== -1 ? findColumnIndex("Candidate Name") : 5,
-      phone: findColumnIndex("Candidate Phone Number") !== -1 ? findColumnIndex("Candidate Phone Number") : 7,
-      email: findColumnIndex("Candidate Email") !== -1 ? findColumnIndex("Candidate Email") : 8,
-      aadhar: findColumnIndex("Aadhar Number") !== -1 ? findColumnIndex("Aadhar Number") : 19,
-      address: findColumnIndex("Present Address") !== -1 ? findColumnIndex("Present Address") : 18
-    };
-
-    // Process all enquiry data
-    const allEnquiryData = enquiryRows
-      .filter(row => row && row.length > 0 && row[columnIndices.enquiryNo])
-      .map((row, index) => ({
-        id: `row-${index + 7}`,
-        indentNo: row[columnIndices.indentNo] || "",
-        candidateEnquiryNo: (row[columnIndices.enquiryNo] || "").toString().trim(),
-        applyingForPost: row[columnIndices.position] || "",
-        department: row[columnIndices.department] || "",
-        candidateName: row[columnIndices.name] || "",
-        candidatePhone: row[columnIndices.phone] || "",
-        candidateEmail: row[columnIndices.email] || "",
-        aadharNo: row[columnIndices.aadhar] || "",
-        presentAddress: row[columnIndices.address] || "",
-        candidatePhoto: row[16] || "",
-        candidateResume: row[19] || "",
-        plannedDate: row[27] || "",
-        actualJoiningDate: row[28] || "",
-        designation: row[columnIndices.position] || ""
-      }))
-      .filter(item => item.candidateEnquiryNo && item.candidateEnquiryNo.trim() !== "");
-
-    console.log(`Total ENQUIRY records: ${allEnquiryData.length}`);
-
-    // Process FOLLOW-UP data to find candidates with "Joining" status
-    const joiningCandidates = new Set();
-    
-    if (followUpResponse.success && followUpResponse.data) {
-      const followUpRows = followUpResponse.data.slice(1) || [];
-      
-      followUpRows.forEach(row => {
-        if (row && row.length >= 4) {
-          const enquiryNo = (row[2] || "").toString().trim();
-          const status = (row[3] || "").toString().trim().toLowerCase();
-          
-          // Check for "joining" status (case-insensitive)
-          if (enquiryNo && status.includes('joining')) {
-            joiningCandidates.add(enquiryNo);
-          }
-        }
-      });
-      
-      console.log(`Found ${joiningCandidates.size} candidates marked as 'Joining' in FOLLOW-UP`);
-    }
-
-    // Get already joined candidates from JOINING sheet
-    const joinedCandidates = new Set();
-    if (joiningResponse.success && joiningResponse.data) {
-      const joiningRows = joiningResponse.data.slice(1) || [];
-      
-      joiningRows.forEach(row => {
-        if (row && row.length > 89) {
-          const enquiryNo = (row[89] || "").toString().trim();
-          if (enquiryNo) {
-            joinedCandidates.add(enquiryNo);
-          }
-        }
-      });
-      
-      console.log(`Found ${joinedCandidates.size} already joined candidates`);
-    }
-
-    // Filter ENQUIRY data to only include candidates with "Joining" status
-    const joiningItems = allEnquiryData.filter(item => 
-      joiningCandidates.has(item.candidateEnquiryNo)
-    );
-
-    console.log(`Total candidates with 'Joining' status: ${joiningItems.length}`);
-
-    // **FIXED: Separate pending vs history correctly**
-    const pendingData = [];
-    const historyData = [];
-
-    joiningItems.forEach(item => {
-      if (joinedCandidates.has(item.candidateEnquiryNo)) {
-        // Already joined - goes to history
-        historyData.push(item);
-      } else {
-        // Not yet joined - goes to pending
-        pendingData.push(item);
-      }
-    });
-
-    console.log(`Final counts - Pending: ${pendingData.length}, History: ${historyData.length}`);
-
-    // Process history data with JOINING details
-    let processedHistoryData = [];
-    if (historyData.length > 0 && joiningResponse.success && joiningResponse.data) {
-      const joiningRows = joiningResponse.data.slice(1);
-      
-      const joiningMap = new Map();
-      joiningRows.forEach(row => {
-        if (row && row.length > 89) {
-          const enquiryNo = (row[89] || "").toString().trim();
-          if (enquiryNo) {
-            joiningMap.set(enquiryNo, {
-              previousCompanyName: row[83] || "",
-              previousCompanyAddress: row[84] || "",
-              offerLetter: row[85] || "",
-              incrementLetter: row[86] || "",
-              paySlip: row[87] || "",
-              resignationLetter: row[88] || ""
-            });
-          }
-        }
-      });
-
-      processedHistoryData = historyData.map(item => ({
-        ...item,
-        ...(joiningMap.get(item.candidateEnquiryNo) || {})
-      }));
-    } else {
-      processedHistoryData = historyData;
-    }
-
-    // Update state
-    setJoiningData(pendingData);
-    setHistoryData(processedHistoryData);
-    setFollowUpData(Array.from(joiningCandidates, enquiryNo => ({ enquiryNo, status: 'Joining' })));
-
-    // Cache the processed data
-    const cacheData = {
-      joiningData: pendingData,
-      historyData: processedHistoryData,
-      timestamp: now
-    };
-    
-    try {
-      localStorage.setItem(cacheKey, JSON.stringify(cacheData));
-      localStorage.setItem(cacheTimestampKey, now.toString());
-      console.log("Data cached successfully");
-    } catch (cacheError) {
-      console.warn("Failed to cache data:", cacheError);
-    }
-
-  } catch (error) {
-    console.error("Error fetching data:", error);
-    
-    // Try to load from cache even if it's expired
-    try {
-      const cacheKey = 'joiningDataCache';
-      const cachedData = localStorage.getItem(cacheKey);
-      if (cachedData) {
-        const { joiningData: cachedJoiningData, historyData: cachedHistoryData } = JSON.parse(cachedData);
-        console.log("Using expired cache - Pending:", cachedJoiningData.length, "History:", cachedHistoryData.length);
-        setJoiningData(cachedJoiningData);
-        setHistoryData(cachedHistoryData);
-        toast.success('Showing cached data. Some data may be outdated.');
-      } else {
-        setError(error.message);
-        toast.error("Failed to fetch data");
-        
-        // Auto-retry logic
-        if (retryCount < maxRetries) {
-          console.log(`Retrying in 3 seconds... (${retryCount + 1}/${maxRetries})`);
-          setTimeout(() => fetchJoiningData(true), 3000);
-        }
-      }
-    } catch (cacheError) {
-      setError(error.message);
-      toast.error("Failed to fetch data");
-    }
-  } finally {
-    setLoading(false);
-    setTableLoading(false);
-  }
-};
-
-useEffect(() => {
-  let isMounted = true;
-  
-  const initializeData = async () => {
-    if (isMounted) {
-      // Clear any existing cache on first load to ensure fresh data
-      if (!localStorage.getItem('joiningDataCache')) {
-        console.log("First load - clearing cache");
-        localStorage.removeItem('joiningDataCache');
-        localStorage.removeItem('joiningDataTimestamp');
-      }
-      
-      await fetchJoiningData();
-      
-      // Set up polling with exponential backoff
-      let pollCount = 0;
-      const pollInterval = setInterval(() => {
-        if (isMounted) {
-          pollCount++;
-          // Refresh less frequently over time
-          const interval = pollCount < 5 ? 60000 : 300000; // 1 min for first 5, then 5 min
-          if (pollCount % (interval/60000) === 0) {
-            fetchJoiningData();
-          }
-        }
-      }, 60000);
-      
-      return () => clearInterval(pollInterval);
     }
   };
-  
-  initializeData();
-  
-  return () => {
-    isMounted = false;
-  };
-}, []);
-
-
-useEffect(() => {
-  let isMounted = true;
-  
-  const fetchData = async () => {
-    if (isMounted) {
-      await fetchJoiningData();
-    }
-  };
-  
-  fetchData();
-  
-  // Cleanup function
-  return () => {
-    isMounted = false;
-  };
-}, []);
 
   useEffect(() => {
     fetchJoiningData();
@@ -626,120 +401,6 @@ useEffect(() => {
     }
   };
 
-  const postToJoiningSheet = async (rowData) => {
-    const URL = 'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec';
-
-    try {
-      const params = new URLSearchParams();
-      params.append('sheetName', 'JOINING');
-      params.append('action', 'insert');
-      params.append('rowData', JSON.stringify(rowData));
-
-      const response = await fetch(URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: params,
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || 'Server returned unsuccessful response');
-      }
-
-      return data;
-    } catch (error) {
-      console.error('Full error details:', {
-        error: error.message,
-        stack: error.stack,
-        rowData: rowData.slice(0, 30),
-        timestamp: new Date().toISOString()
-      });
-      throw new Error(`Failed to update sheet: ${error.message}`);
-    }
-  };
-
-  const uploadFileToDrive = async (file, folderId = '1Rb4DIzbZWSVyL5s_z4d0ntk0iM-JZWBq') => {
-    try {
-      const reader = new FileReader();
-      const base64Data = await new Promise((resolve, reject) => {
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      const params = new URLSearchParams();
-      params.append('action', 'uploadFile');
-      params.append('base64Data', base64Data);
-      params.append('fileName', file.name);
-      params.append('mimeType', file.type);
-      params.append('folderId', folderId);
-
-      const response = await fetch(
-        'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: params,
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || 'File upload failed');
-      }
-
-      return data.fileUrl;
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      toast.error(`Failed to upload file: ${error.message}`);
-      throw error;
-    }
-  };
-
-  const updateEnquirySheet = async (enquiryNo, timestamp) => {
-    const URL = 'https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec';
-
-    try {
-      const params = new URLSearchParams();
-      params.append('sheetName', 'ENQUIRY');
-      params.append('action', 'updateEnquiryColumn');
-      params.append('enquiryNo', enquiryNo);
-      params.append('timestamp', timestamp);
-
-      const response = await fetch(URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: params,
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data.success;
-    } catch (error) {
-      console.error('Error updating enquiry sheet:', error);
-      throw new Error(`Failed to update enquiry sheet: ${error.message}`);
-    }
-  };
 
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -793,27 +454,8 @@ useEffect(() => {
     setSubmitting(true);
 
     try {
-      const joiningSheetResponse = await fetch(
-        "https://script.google.com/macros/s/AKfycbwXmzJ1VXIL4ZCKubtcsqrDcnAgxB3byiIWAC2i9Z3UVvWPaijuRJkMJxBvj3gNOBoJ/exec?sheet=JOINING&action=fetch"
-      );
+      const serialNumber = await generateNextJoiningSerial();
 
-      let serialNumber = 'SN-001';
-
-      if (joiningSheetResponse.ok) {
-        const joiningResult = await joiningSheetResponse.json();
-        if (joiningResult.success && joiningResult.data && joiningResult.data.length > 1) {
-          const lastRow = joiningResult.data[joiningResult.data.length - 1];
-          const lastId = lastRow[1];
-
-          if (lastId && lastId.startsWith('SN-')) {
-            const lastNumber = parseInt(lastId.split('-')[1]);
-            const newNumber = lastNumber + 1;
-            serialNumber = 'SN-' + String(newNumber).padStart(3, '0');
-          }
-        }
-      }
-
-      const uploadPromises = {};
       const fileFields = [
         'aadharFrontPhoto',
         'aadharBackPhoto',
@@ -829,150 +471,82 @@ useEffect(() => {
         'resignationLetter'
       ];
 
-      for (const field of fileFields) {
-        if (joiningFormData[field]) {
-          uploadPromises[field] = uploadFileToDrive(joiningFormData[field]);
-        } else {
-          uploadPromises[field] = Promise.resolve('');
-        }
-      }
-
-      const uploadedUrls = await Promise.all(
-        Object.values(uploadPromises).map(promise =>
-          promise.catch(error => {
-            console.error('Upload failed:', error);
-            return '';
-          })
-        )
-      );
-
       const fileUrls = {};
-      Object.keys(uploadPromises).forEach((field, index) => {
-        fileUrls[field] = uploadedUrls[index];
-      });
-
-      const formatDateForSheet = (dateString) => {
-        if (!dateString) return '';
-
-        if (typeof dateString === 'string' && dateString.includes('/')) {
-          const parts = dateString.split('/');
-          if (parts.length === 3) {
-            const day = parseInt(parts[0]);
-            const month = parseInt(parts[1]);
-            const year = parseInt(parts[2]);
-
-            if (day > 0 && day <= 31 && month > 0 && month <= 12) {
-              const paddedDay = String(day).padStart(2, '0');
-              const paddedMonth = String(month).padStart(2, '0');
-              return `${paddedDay}/${paddedMonth}/${year}`;
-            }
+      for (const field of fileFields) {
+        if (joiningFormData[field] instanceof File) {
+          const fileName = `${selectedItem.candidateEnquiryNo}_${field}_${joiningFormData[field].name}`;
+          const uploadResult = await uploadJoiningFile(joiningFormData[field], fileName);
+          if (uploadResult.success) {
+            fileUrls[field] = uploadResult.url;
+          } else {
+            console.error(`Failed to upload ${field}:`, uploadResult.error);
+            fileUrls[field] = '';
           }
+        } else {
+          fileUrls[field] = joiningFormData[field] || '';
         }
-
-        if (typeof dateString === 'string' && dateString.includes('-')) {
-          const parts = dateString.split('-');
-          if (parts.length === 3) {
-            return `${parts[2]}/${parts[1]}/${parts[0]}`;
-          }
-        }
-
-        const date = new Date(dateString);
-        if (isNaN(date.getTime())) {
-          return dateString;
-        }
-
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const year = date.getFullYear();
-
-        return `${day}/${month}/${year}`;
-      };
-
-      const formatDOBForSheet = (dateString) => {
-        if (!dateString) return '';
-
-        if (typeof dateString === 'string' && dateString.includes('-')) {
-          const parts = dateString.split('-');
-          if (parts.length === 3) {
-            return `${parts[2]}/${parts[1]}/${parts[0]}`;
-          }
-        }
-
-        const date = new Date(dateString);
-        if (isNaN(date.getTime())) {
-          return dateString;
-        }
-
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const year = date.getFullYear();
-
-        return `${day}/${month}/${year}`;
-      };
-
-      const now = new Date();
-      const formattedTimestamp = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-
-      const rowData = [];
-
-      for (let i = 0; i < 120; i++) {
-        rowData[i] = '';
       }
 
-      rowData[0] = formattedTimestamp;
-      rowData[1] = serialNumber;
-      rowData[2] = selectedItem.candidateName || '';
-      rowData[3] = joiningFormData.fatherName || '';
-      rowData[4] = formatDateForSheet(joiningFormData.dateOfJoining) || '';
-      rowData[5] = selectedItem.designation || selectedItem.applyingForPost || '';
-      rowData[6] = fileUrls.aadharFrontPhoto || '';
-      rowData[7] = selectedItem.candidatePhoto || fileUrls.candidatePhoto || '';
-      rowData[8] = joiningFormData.currentAddress || selectedItem.presentAddress || '';
-      rowData[9] = formatDOBForSheet(joiningFormData.dobAsPerAadhar) || '';
-      rowData[10] = joiningFormData.gender || '';
-      rowData[11] = joiningFormData.mobileNo || selectedItem.candidatePhone || '';
-      rowData[12] = joiningFormData.familyMobileNo || '';
-      rowData[13] = joiningFormData.relationshipWithFamily || '';
-      rowData[14] = joiningFormData.currentBankAc || '';
-      rowData[15] = joiningFormData.ifscCode || '';
-      rowData[16] = joiningFormData.branchName || '';
-      rowData[17] = fileUrls.bankPassbookPhoto || '';
-      rowData[18] = joiningFormData.personalEmail || selectedItem.candidateEmail || '';
-      rowData[19] = joiningFormData.highestQualification || '';
-      rowData[20] = selectedItem.department || '';
-      rowData[21] = joiningFormData.aadharCardNo || selectedItem.aadharNo || '';
-      rowData[22] = selectedItem.candidateResume || fileUrls.resumeCopy || '';
-      rowData[83] = joiningFormData.previousCompanyName || selectedItem.previousCompany || '';
-      rowData[84] = joiningFormData.previousCompanyAddress || '';
-      rowData[85] = fileUrls.offerLetter || '';
-      rowData[86] = fileUrls.incrementLetter || '';
-      rowData[87] = fileUrls.paySlip || '';
-      rowData[88] = fileUrls.resignationLetter || '';
-      rowData[89] = joiningFormData.enquiryNo || selectedItem.candidateEnquiryNo || '';
-      rowData[92] = joiningFormData.bloodGroup || '';
-      rowData[93] = joiningFormData.identificationMarks || '';
+      const joiningRecord = {
+        serial_no: serialNumber,
+        enquiry_no: selectedItem.candidateEnquiryNo,
+        name_as_per_aadhar: joiningFormData.nameAsPerAadhar || selectedItem.candidateName,
+        father_name: joiningFormData.fatherName,
+        date_of_joining: joiningFormData.dateOfJoining,
+        joining_place: joiningFormData.joiningPlace,
+        designation: joiningFormData.designation || selectedItem.designation,
+        salary: joiningFormData.salary,
+        aadhar_front_photo: fileUrls.aadharFrontPhoto || selectedItem.candidatePhoto,
+        aadhar_back_photo: fileUrls.aadharBackPhoto,
+        pan_card: fileUrls.panCard,
+        candidate_photo: fileUrls.candidatePhoto || selectedItem.candidatePhoto,
+        current_address: joiningFormData.currentAddress || selectedItem.presentAddress,
+        address_as_per_aadhar: joiningFormData.addressAsPerAadhar,
+        dob_as_per_aadhar: joiningFormData.dobAsPerAadhar,
+        gender: joiningFormData.gender,
+        mobile_no: joiningFormData.mobileNo || selectedItem.candidatePhone,
+        family_mobile_no: joiningFormData.familyMobileNo,
+        relationship_with_family: joiningFormData.relationshipWithFamily,
+        past_pf_id: joiningFormData.pastPfId,
+        current_bank_account_no: joiningFormData.currentBankAccountNo,
+        current_bank_ifsc: joiningFormData.currentBankIfsc,
+        branch_name: joiningFormData.branchName,
+        blood_group: joiningFormData.bloodGroup,
+        identification_marks: joiningFormData.identificationMarks,
+        bank_passbook_photo: fileUrls.bankPassbookPhoto,
+        personal_email: joiningFormData.personalEmail || selectedItem.candidateEmail,
+        esic_no: joiningFormData.esicNo,
+        highest_qualification: joiningFormData.highestQualification,
+        pf_eligible: joiningFormData.pfEligible,
+        esic_eligible: joiningFormData.esicEligible,
+        joining_company_name: joiningFormData.joiningCompanyName,
+        email_to_be_issue: joiningFormData.emailToBeIssue,
+        issue_mobile: joiningFormData.issueMobile,
+        issue_laptop: joiningFormData.issueLaptop,
+        aadhar_card_no: joiningFormData.aadharCardNo || selectedItem.aadharNo,
+        mode_of_attendance: joiningFormData.modeOfAttendance,
+        qualification_photo: fileUrls.qualificationPhoto,
+        payment_mode: joiningFormData.paymentMode,
+        salary_slip: fileUrls.salarySlip,
+        resume_copy: fileUrls.resumeCopy || selectedItem.candidateResume,
+        department: joiningFormData.department || selectedItem.department,
+        equipment: joiningFormData.equipment,
+        previous_company_name: joiningFormData.previousCompanyName || selectedItem.previousCompany,
+        previous_company_address: joiningFormData.previousCompanyAddress,
+        offer_letter: fileUrls.offerLetter,
+        increment_letter: fileUrls.incrementLetter,
+        pay_slip: fileUrls.paySlip,
+        resignation_letter: fileUrls.resignationLetter
+      };
 
-      console.log("Submitting row data to JOINING sheet:", {
-        timestamp: rowData[0],
-        joiningId: rowData[1],
-        name: rowData[2],
-        currentAddress: rowData[8],
-        dob: rowData[9],
-        email: rowData[18],
-        aadharNo: rowData[21],
-        dateOfJoining: rowData[4],
-        enquiryNo: rowData[89]
-      });
+      const result = await createJoiningRecord(joiningRecord);
 
-      await postToJoiningSheet(rowData);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
 
-      console.log("Joining Form Data submitted successfully!");
-      console.log("Joining ID:", serialNumber);
-      console.log("Candidate Name:", selectedItem.candidateName);
-      console.log("Current Address:", rowData[8]);
-      console.log("Date of Birth:", rowData[9]);
-      console.log("Email:", rowData[18]);
-      console.log("Aadhar Number:", rowData[21]);
+      // Update enquiry status to Joined
+      await confirmJoining(selectedItem.candidateEnquiryNo);
 
       toast.success('Employee added successfully! Joining ID: ' + serialNumber);
       setShowJoiningModal(false);
