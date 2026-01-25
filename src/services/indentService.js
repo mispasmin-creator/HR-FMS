@@ -19,9 +19,15 @@ export const fetchAllIndents = async () => {
 // Create new indent
 export const createIndent = async (indentData) => {
   try {
+    // Ensure status is set to pending by default
+    const dataToInsert = {
+      ...indentData,
+      status: indentData.status || "pending",
+    };
+
     const { data, error } = await supabase
       .from("indents")
-      .insert([indentData])
+      .insert([dataToInsert])
       .select();
 
     if (error) throw error;
@@ -33,25 +39,33 @@ export const createIndent = async (indentData) => {
 };
 
 // Generate next indent number
+// Generate next indent number
+// Generate next indent number
+// Generate next indent number
 export const generateNextIndentNumber = async () => {
   try {
     const { data, error } = await supabase
       .from("indents")
-      .select("indent_number")
-      .order("created_at", { ascending: false })
-      .limit(1);
+      .select("indent_number");
 
     if (error) throw error;
 
     let maxNumber = 0;
+
+    // Loop through ALL records and find the highest number
     if (data && data.length > 0) {
-      const lastIndentNumber = data[0].indent_number;
-      const match = lastIndentNumber.toString().match(/\d+/);
-      if (match) {
-        maxNumber = parseInt(match[0]);
-      }
+      data.forEach((record) => {
+        const matches = record.indent_number.toString().match(/\d+/g);
+        if (matches && matches.length > 0) {
+          const num = parseInt(matches[matches.length - 1]);
+          if (num > maxNumber) {
+            maxNumber = num;
+          }
+        }
+      });
     }
 
+    console.log("Max number found:", maxNumber);
     return `REC-${String(maxNumber + 1).padStart(2, "0")}`;
   } catch (error) {
     console.error("Error generating indent number:", error);

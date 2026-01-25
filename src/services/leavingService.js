@@ -4,29 +4,19 @@ import { supabase } from "../config/supabase";
  * Fetch leaving data (pending and history)
  */
 
-
 export const fetchEmployeeForLeaving = async (employeeCode) => {
   try {
-    const { data: joiningData, error: joiningError } = await supabase
+    const { data: joiningData, error } = await supabase
       .from("joining")
-      .select(`
-        *,
-        enquiries (
-          candidate_name,
-          candidate_phone,
-          applying_for_post,
-          department
-        )
-      `)
+      .select("*")
       .eq("employee_code", employeeCode)
       .single();
 
-    if (joiningError) {
+    if (error || !joiningData) {
       return { success: false, error: "Employee not found or invalid code." };
     }
 
-    // 🔍 NEW: Check if this employee is already in the 'leaving' table
-    const { data: leavingRecord, error: leavingError } = await supabase
+    const { data: leavingRecord } = await supabase
       .from("leaving")
       .select("id")
       .eq("employee_no", joiningData.serial_no)
@@ -37,52 +27,30 @@ export const fetchEmployeeForLeaving = async (employeeCode) => {
         success: true,
         status: "ALREADY_LISTED",
         data: joiningData,
-        error: "This employee is already listed in Leaving records (Pending or Approved)."
+        error: "This employee is already listed in Leaving records.",
       };
     }
 
-    // If marked left in joining table but not found in leaving (unlikely but possible)
     if (joiningData.actual_leaving_date) {
-      return {
-        success: true,
-        status: "LEFT",
-        data: joiningData
-      };
+      return { success: true, status: "LEFT", data: joiningData };
     }
 
-    // Active employee
-    return {
-      success: true,
-      status: "ACTIVE",
-      data: joiningData
-    };
-
+    return { success: true, status: "ACTIVE", data: joiningData };
   } catch (err) {
     return { success: false, error: err.message };
   }
 };
 
-
-
 export const fetchLeavingData = async () => {
   try {
-   const { data: joiningData, error: joiningError } = await supabase
-  .from("joining")
-  .select(`
-    *,
-    enquiries (
-      candidate_name,
-      candidate_phone,
-      applying_for_post,
-      department
-    )
-  `)
-  .not("actual_after_joining_date", "is", null)   // joined
-  .is("actual_leaving_date", null)                // ❗ NOT left
-  .order("created_at", { ascending: false });
+    const { data: joiningData, error } = await supabase
+      .from("joining")
+      .select("*")
+      .not("actual_after_joining_date", "is", null)
+      .is("actual_leaving_date", null)
+      .order("created_at", { ascending: false });
 
-
-    if (joiningError) throw joiningError;
+    if (error) throw error;
 
     const { data: historyData, error: historyError } = await supabase
       .from("leaving")
@@ -91,16 +59,16 @@ export const fetchLeavingData = async () => {
 
     if (historyError) throw historyError;
 
-    const pending = joiningData.map(item => ({
+    const pending = joiningData.map((item) => ({
       rowIndex: item.id,
       employeeCode: item.employee_code,
       employeeNo: item.serial_no,
-      candidateName: item.name_as_per_aadhar || item.enquiries?.candidate_name || "",
+      candidateName: item.name_as_per_aadhar || "",
       fatherName: item.father_name || "",
       dateOfJoining: item.date_of_joining,
-      designation: item.designation || item.enquiries?.applying_for_post || "",
-      department: item.department || item.enquiries?.department || "",
-      mobileNo: item.mobile_no || item.enquiries?.candidate_phone || "",
+      designation: item.designation || "",
+      department: item.department || "",
+      mobileNo: item.mobile_no || "",
       firmName: item.after_joining_company_name || "",
       workingPlace: item.after_joining_joining_place || "",
       plannedDate: item.planned_after_joining_date,
@@ -109,7 +77,7 @@ export const fetchLeavingData = async () => {
       actual_leaving_date: item.actual_leaving_date,
     }));
 
-    const history = historyData.map(item => ({
+    const history = historyData.map((item) => ({
       timestamp: item.created_at,
       employeeId: item.employee_no,
       name: item.candidate_name,
@@ -126,7 +94,6 @@ export const fetchLeavingData = async () => {
 
     return { success: true, pending, history };
   } catch (error) {
-    console.error("Error fetching leaving data:", error);
     return { success: false, error: error.message };
   }
 };
@@ -138,7 +105,8 @@ export const searchEmployeeForLeaving = async (employeeCode) => {
 
     const { data, error } = await supabase
       .from("joining")
-      .select(`
+      .select(
+        `
         id,
         serial_no,
         employee_code,
@@ -150,10 +118,11 @@ export const searchEmployeeForLeaving = async (employeeCode) => {
         mobile_no,
         after_joining_company_name,
         after_joining_joining_place
-      `)
+      `,
+      )
       .eq("employee_code", employeeCode)
       .not("actual_after_joining_date", "is", null) // must be joined
-      .is("actual_leaving_date", null)              // must NOT be left
+      .is("actual_leaving_date", null) // must NOT be left
       .single();
 
     if (error && error.code !== "PGRST116") throw error;
@@ -175,17 +144,13 @@ export const searchEmployeeForLeaving = async (employeeCode) => {
         mobileNo: data.mobile_no || "",
         firmName: data.after_joining_company_name || "",
         workingPlace: data.after_joining_joining_place || "",
-      }
+      },
     };
-
   } catch (error) {
     console.error("Search employee error:", error);
     return { success: false, error: error.message };
   }
 };
-
-
-
 
 /**
  * Submit leaving request
@@ -195,46 +160,43 @@ export const searchEmployeeForLeaving = async (employeeCode) => {
 export const submitLeavingRequest = async (selectedItem, formData) => {
   try {
     const now = new Date().toISOString();
-    
+
     // Format dates for DB if needed, but Supabase handles ISO strings better
     const formattedLeavingDate = formData.dateOfLeaving;
     const formattedLastWorkingDate = formData.lastWorkingDate;
 
-// 1️⃣ Mark employee as left in joining table and initialize clearance workflow
-const { error: updateError } = await supabase
-  .from("joining")
-  .update({
-    actual_leaving_date: formData.dateOfLeaving,
-    planned_after_leaving_approval_date: now, // Initialize the clearance process
-  })
-  .eq("serial_no", selectedItem.employeeNo);
+    // 1️⃣ Mark employee as left in joining table and initialize clearance workflow
+    const { error: updateError } = await supabase
+      .from("joining")
+      .update({
+        actual_leaving_date: formData.dateOfLeaving,
+        planned_after_leaving_approval_date: now, // Initialize the clearance process
+      })
+      .eq("serial_no", selectedItem.employeeNo);
 
-if (updateError) throw updateError;
-
-
+    if (updateError) throw updateError;
 
     // 2. Insert into leaving table
-    const { error: insertError } = await supabase
-  .from("leaving")
-  .insert([{
-    employee_no: selectedItem.employeeNo,
-    candidate_name: selectedItem.candidateName,
-    leaving_date: formattedLeavingDate,
-    mobile_no: formData.mobileNumber,
-    reason_of_leaving: formData.reasonOfLeaving,
-    firm_name: selectedItem.firmName,
-    father_name: selectedItem.fatherName,
-    date_of_joining: selectedItem.dateOfJoining,
-    working_location: selectedItem.workingPlace,
-    designation: selectedItem.designation,
-    department: selectedItem.department,
-    type_of_leave: formData.typeOfLeave,
-    last_working_date: formattedLastWorkingDate,
-    working_days: formData.workingDays,
-    amount: formData.amount,
-    created_at: now
-  }]);
-
+    const { error: insertError } = await supabase.from("leaving").insert([
+      {
+        employee_no: selectedItem.employeeNo,
+        candidate_name: selectedItem.candidateName,
+        leaving_date: formattedLeavingDate,
+        mobile_no: formData.mobileNumber,
+        reason_of_leaving: formData.reasonOfLeaving,
+        firm_name: selectedItem.firmName,
+        father_name: selectedItem.fatherName,
+        date_of_joining: selectedItem.dateOfJoining,
+        working_location: selectedItem.workingPlace,
+        designation: selectedItem.designation,
+        department: selectedItem.department,
+        type_of_leave: formData.typeOfLeave,
+        last_working_date: formattedLastWorkingDate,
+        working_days: formData.workingDays,
+        amount: formData.amount,
+        created_at: now,
+      },
+    ]);
 
     if (insertError) throw insertError;
 
@@ -254,7 +216,7 @@ export const fetchLeavingHistory = async () => {
 
     if (error) throw error;
 
-    const history = data.map(item => ({
+    const history = data.map((item) => ({
       employeeId: item.employee_no,
       name: item.candidate_name,
       dateOfJoining: item.date_of_joining,

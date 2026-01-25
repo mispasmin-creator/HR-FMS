@@ -4,31 +4,28 @@ import { supabase } from "../config/supabase";
  * Fetch all entries from the joining table
  */
 export const fetchJoiningHistory = async () => {
-  try {
-    const { data, error } = await supabase
-      .from("joining")
-      .select(`
-        *,
-        enquiries!inner (
-          candidate_enquiry_number,
-          candidate_name,
-          candidate_email,
-          candidate_phone,
-          applying_for_post,
-          department,
-          candidate_photo,
-          candidate_resume,
-          indent_number
-        )
-      `)
-      .order("created_at", { ascending: false });
+  const { data, error } = await supabase
+    .from("joining")
+    .select(
+      `
+      *,
+      enquiries!joining_candidate_enquiry_fkey (
+        candidate_enquiry_number,
+        candidate_name,
+        candidate_email,
+        candidate_phone,
+        applying_for_post,
+        department,
+        candidate_photo,
+        candidate_resume,
+        indent_number
+      )
+    `,
+    )
+    .order("created_at", { ascending: false });
 
-    if (error) throw error;
-    return { success: true, data: data || [] };
-  } catch (error) {
-    console.error("Error fetching joining history:", error);
-    return { success: false, error: error.message };
-  }
+  if (error) throw error;
+  return { success: true, data };
 };
 
 /**
@@ -69,10 +66,14 @@ export const fetchPendingJoiningCandidates = async () => {
 
     if (joiningError) throw joiningError;
 
-    const joinedEnquiryNumbers = new Set(joiningRecords.map(r => r.enquiry_no));
+    const joinedEnquiryNumbers = new Set(
+      joiningRecords.map((r) => r.enquiry_no),
+    );
 
     // Filter out enquiries that already have joining records
-    const pendingCandidates = enquiries.filter(e => !joinedEnquiryNumbers.has(e.candidate_enquiry_number));
+    const pendingCandidates = enquiries.filter(
+      (e) => !joinedEnquiryNumbers.has(e.candidate_enquiry_number),
+    );
 
     return { success: true, data: pendingCandidates };
   } catch (error) {
@@ -89,11 +90,11 @@ export const uploadJoiningFile = async (file, path) => {
     const { data, error } = await supabase.storage
       .from("joining-files")
       .upload(path, file, {
-        cacheControl: '3600',
-        upsert: true
+        cacheControl: "3600",
+        upsert: true,
       });
-      console.log("data", data);
-      console.log("path", path);
+    console.log("data", data);
+    console.log("path", path);
 
     if (error) throw error;
 
@@ -114,23 +115,26 @@ export const uploadJoiningFile = async (file, path) => {
  */
 export const generateNextJoiningSerial = async () => {
   try {
-    const { data, error } = await supabase
-      .from("joining")
-      .select("serial_no")
-      .order("created_at", { ascending: false })
-      .limit(1);
+    const { data, error } = await supabase.from("joining").select("serial_no");
 
     if (error) throw error;
 
     let maxNumber = 0;
+
+    // Loop through ALL records and find the highest number
     if (data && data.length > 0) {
-      const lastSerial = data[0].serial_no;
-      const match = lastSerial.toString().match(/SN-(\d+)/i);
-      if (match && match[1]) {
-        maxNumber = parseInt(match[1], 10);
-      }
+      data.forEach((record) => {
+        const match = record.serial_no.toString().match(/SN-(\d+)/i);
+        if (match && match[1]) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNumber) {
+            maxNumber = num;
+          }
+        }
+      });
     }
 
+    console.log("Max joining serial number found:", maxNumber);
     return `SN-${String(maxNumber + 1).padStart(3, "0")}`;
   } catch (error) {
     console.error("Error generating joining serial:", error);
@@ -142,16 +146,16 @@ export const generateNextJoiningSerial = async () => {
  * Update enquiry status to 'Joined' after joining record is created.
  */
 export const confirmJoining = async (enquiryNo) => {
-    try {
-        const { error } = await supabase
-            .from('enquiries')
-            .update({ track_status: 'Joined' })
-            .eq('candidate_enquiry_number', enquiryNo);
+  try {
+    const { error } = await supabase
+      .from("enquiries")
+      .update({ track_status: "Joined" })
+      .eq("candidate_enquiry_number", enquiryNo);
 
-        if (error) throw error;
-        return { success: true };
-    } catch (error) {
-        console.error('Error confirming joining:', error);
-        return { success: false, error: error.message };
-    }
+    if (error) throw error;
+    return { success: true };
+  } catch (error) {
+    console.error("Error confirming joining:", error);
+    return { success: false, error: error.message };
+  }
 };

@@ -1,36 +1,46 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Clock, CheckCircle, X, PauseCircle, RefreshCw, Calendar, Download } from 'lucide-react';
-import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx';
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  Search,
+  Clock,
+  CheckCircle,
+  X,
+  PauseCircle,
+  RefreshCw,
+  Calendar,
+  Download,
+} from "lucide-react";
+import toast from "react-hot-toast";
+import * as XLSX from "xlsx";
 import {
   fetchCallTrackerHistory,
   createCallTrackerEntry,
   updateEnquiryOnJoining,
-} from '../services/callTrackerService';
-import { fetchAllEnquiries } from '../services/enquiryService';
-import { fetchAllIndents } from '../services/indentService';
+  fetchPendingEnquiries,
+} from "../services/callTrackerService";
+
+import { fetchAllIndents } from "../services/indentService";
 
 const CallTracker = () => {
-  const [activeTab, setActiveTab] = useState('pending');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState("pending");
+  const [searchTerm, setSearchTerm] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [followUpData, setFollowUpData] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
-  
+
   const [formData, setFormData] = useState({
-    candidateSays: '',
-    status: '',
-    nextDate: ''
+    candidateSays: "",
+    status: "",
+    nextDate: "",
   });
-  
+
   const [enquiryData, setEnquiryData] = useState([]);
   const [historyData, setHistoryData] = useState([]);
 
   const latestStatusMap = React.useMemo(() => {
     const map = {};
-    historyData.forEach(entry => {
+    historyData.forEach((entry) => {
       const key = entry.enquiryNo;
       if (
         !map[key] ||
@@ -44,68 +54,97 @@ const CallTracker = () => {
 
   const latestHistoryData = Object.values(latestStatusMap);
 
-
-
-
   // Add export functionality
   const exportToExcel = () => {
     try {
       let dataToExport = [];
-      let filename = '';
+      let filename = "";
 
       // Determine which data to export based on active tab
       switch (activeTab) {
-        case 'pending':
-          dataToExport = pendingData.filter(item => {
-            const matchesSearch = item.candidateName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              item.candidateEnquiryNo?.toLowerCase().includes(searchTerm.toLowerCase());
+        case "pending":
+          dataToExport = pendingData.filter((item) => {
+            const matchesSearch =
+              item.candidateName
+                ?.toLowerCase()
+                .includes(searchTerm.toLowerCase()) ||
+              item.candidateEnquiryNo
+                ?.toLowerCase()
+                .includes(searchTerm.toLowerCase());
             return matchesSearch;
           });
-          filename = 'Pending_Calls_Data';
+          filename = "Pending_Calls_Data";
           break;
-        case 'followup':
-          dataToExport = historyData.filter(item => 
-            item.status === "Follow-up"
-          ).filter(item => {
-            const matchesSearch = item.enquiryNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                item.candidateSays?.toLowerCase().includes(searchTerm.toLowerCase());
-            return matchesSearch;
-          });
-          filename = 'FollowUp_Calls_Data';
+        case "followup":
+          dataToExport = historyData
+            .filter((item) => item.status === "Follow-up")
+            .filter((item) => {
+              const matchesSearch =
+                item.enquiryNo
+                  ?.toLowerCase()
+                  .includes(searchTerm.toLowerCase()) ||
+                item.candidateSays
+                  ?.toLowerCase()
+                  .includes(searchTerm.toLowerCase());
+              return matchesSearch;
+            });
+          filename = "FollowUp_Calls_Data";
           break;
-        case 'interview':
-          dataToExport = historyData.filter(item => item.status === "Interview").filter(item => {
-            const matchesSearch = item.enquiryNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                item.candidateSays?.toLowerCase().includes(searchTerm.toLowerCase());
-            return matchesSearch;
-          });
-          filename = 'Interview_Calls_Data';
+        case "interview":
+          dataToExport = historyData
+            .filter((item) => item.status === "Interview")
+            .filter((item) => {
+              const matchesSearch =
+                item.enquiryNo
+                  ?.toLowerCase()
+                  .includes(searchTerm.toLowerCase()) ||
+                item.candidateSays
+                  ?.toLowerCase()
+                  .includes(searchTerm.toLowerCase());
+              return matchesSearch;
+            });
+          filename = "Interview_Calls_Data";
           break;
-        case 'onhold':
-          dataToExport = historyData.filter(item => item.status === "On Hold").filter(item => {
-            const matchesSearch = item.enquiryNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                item.candidateSays?.toLowerCase().includes(searchTerm.toLowerCase());
-            return matchesSearch;
-          });
-          filename = 'OnHold_Calls_Data';
+        case "onhold":
+          dataToExport = historyData
+            .filter((item) => item.status === "On Hold")
+            .filter((item) => {
+              const matchesSearch =
+                item.enquiryNo
+                  ?.toLowerCase()
+                  .includes(searchTerm.toLowerCase()) ||
+                item.candidateSays
+                  ?.toLowerCase()
+                  .includes(searchTerm.toLowerCase());
+              return matchesSearch;
+            });
+          filename = "OnHold_Calls_Data";
           break;
-        case 'history':
-          dataToExport = historyData.filter(item => 
-            item.status === "Joining" || 
-            item.status === "Reject" ||
-            item.status === "Negotiation"
-          ).filter(item => {
-            const matchesSearch = item.enquiryNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                item.candidateSays?.toLowerCase().includes(searchTerm.toLowerCase());
-            return matchesSearch;
-          });
-          filename = 'History_Calls_Data';
+        case "history":
+          dataToExport = historyData
+            .filter(
+              (item) =>
+                item.status === "Joining" ||
+                item.status === "Reject" ||
+                item.status === "Negotiation",
+            )
+            .filter((item) => {
+              const matchesSearch =
+                item.enquiryNo
+                  ?.toLowerCase()
+                  .includes(searchTerm.toLowerCase()) ||
+                item.candidateSays
+                  ?.toLowerCase()
+                  .includes(searchTerm.toLowerCase());
+              return matchesSearch;
+            });
+          filename = "History_Calls_Data";
           break;
         default:
           dataToExport = [];
-          filename = 'CallTracker_Data';
+          filename = "CallTracker_Data";
       }
-      
+
       if (dataToExport.length === 0) {
         toast.error(`No data to export in ${activeTab} tab`);
         return;
@@ -113,86 +152,96 @@ const CallTracker = () => {
 
       // Prepare data for Excel based on active tab
       let excelData = [];
-      
-      if (activeTab === 'pending') {
+
+      if (activeTab === "pending") {
         excelData = dataToExport.map((item, index) => ({
-          'S.No': index + 1,
-          'Indent No.': item.indentNo || '',
-          'Candidate Enquiry No.': item.candidateEnquiryNo || '',
-          'Applying For Post': item.applyingForPost || '',
-          'Department': item.department || '',
-          'Candidate Name': item.candidateName || '',
-          'Phone': item.candidatePhone || '',
-          'Email': item.candidateEmail || '',
-          'Planned Date': formatDateForExport(item.plannedDate) || '',
-          'Previous Company': item.previousCompany || '',
-          'Job Experience': item.jobExperience || '',
-          'Last Salary': item.lastSalary || '',
-          'Previous Position': item.previousPosition || '',
-          'Reason for Leaving': item.reasonForLeaving || '',
-          'Marital Status': item.maritalStatus || '',
-          'Last Employer Mobile': item.lastEmployerMobile || '',
-          'Reference By': item.referenceBy || '',
-          'Present Address': item.presentAddress || '',
-          'Aadhar No': item.aadharNo || '',
-          'Photo': item.candidatePhoto || '',
-          'Resume': item.candidateResume || ''
+          "S.No": index + 1,
+          "Indent No.": item.indentNo || "",
+          "Candidate Enquiry No.": item.candidateEnquiryNo || "",
+          "Applying For Post": item.applyingForPost || "",
+          Department: item.department || "",
+          "Candidate Name": item.candidateName || "",
+          Phone: item.candidatePhone || "",
+          Email: item.candidateEmail || "",
+          "Planned Date": formatDateForExport(item.plannedDate) || "",
+          "Previous Company": item.previousCompany || "",
+          "Job Experience": item.jobExperience || "",
+          "Last Salary": item.lastSalary || "",
+          "Previous Position": item.previousPosition || "",
+          "Reason for Leaving": item.reasonForLeaving || "",
+          "Marital Status": item.maritalStatus || "",
+          "Last Employer Mobile": item.lastEmployerMobile || "",
+          "Reference By": item.referenceBy || "",
+          "Present Address": item.presentAddress || "",
+          "Aadhar No": item.aadharNo || "",
+          Photo: item.candidatePhoto || "",
+          Resume: item.candidateResume || "",
         }));
       } else {
         // For other tabs (followup, interview, onhold, history)
         excelData = dataToExport.map((item, index) => ({
-          'S.No': index + 1,
-          'Indent No': item.indentNo || '',
-          'Enquiry No': item.enquiryNo || '',
-          'Status': item.status || '',
-          'Details': item.candidateSays || '',
-          'Next Date': formatDateForExport(item.nextDate) || '',
-          'Timestamp': item.timestamp || ''
+          "S.No": index + 1,
+          "Indent No": item.indentNo || "",
+          "Enquiry No": item.enquiryNo || "",
+          Status: item.status || "",
+          Details: item.candidateSays || "",
+          "Next Date": formatDateForExport(item.nextDate) || "",
+          Timestamp: item.timestamp || "",
         }));
       }
 
       // Create worksheet
       const worksheet = XLSX.utils.json_to_sheet(excelData);
-      
+
       // Create workbook
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'CallTracker Data');
-      
+      XLSX.utils.book_append_sheet(workbook, worksheet, "CallTracker Data");
+
       // Auto-size columns
-      const maxWidth = excelData.reduce((w, r) => Math.max(w, Object.keys(r).length), 10);
-      worksheet['!cols'] = Array.from({ length: maxWidth }, () => ({ width: 20 }));
-      
+      const maxWidth = excelData.reduce(
+        (w, r) => Math.max(w, Object.keys(r).length),
+        10,
+      );
+      worksheet["!cols"] = Array.from({ length: maxWidth }, () => ({
+        width: 20,
+      }));
+
       // Generate filename with timestamp
-      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:]/g, '-');
+      const timestamp = new Date()
+        .toISOString()
+        .slice(0, 19)
+        .replace(/[:]/g, "-");
       const finalFilename = `${filename}_${timestamp}.xlsx`;
-      
+
       // Export to Excel
       XLSX.writeFile(workbook, finalFilename);
-      
-      toast.success(`Exported ${dataToExport.length} ${activeTab} records to Excel`);
+
+      toast.success(
+        `Exported ${dataToExport.length} ${activeTab} records to Excel`,
+      );
     } catch (error) {
-      console.error('Error exporting to Excel:', error);
-      toast.error('Failed to export to Excel');
+      console.error("Error exporting to Excel:", error);
+      toast.error("Failed to export to Excel");
     }
   };
 
   // Helper function for date formatting in export
   const formatDateForExport = (dateString) => {
-    if (!dateString || dateString.trim() === '') return '';
-    
+    if (!dateString || dateString.trim() === "") return "";
+
     try {
-      if (dateString.includes('/')) {
+      if (dateString.includes("/")) {
         return dateString;
       }
-      
+
       const date = new Date(dateString);
       if (date && !isNaN(date.getTime())) {
-        const day = date.getDate().toString().padStart(2, '0');
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, "0");
+        const month = (date.getMonth() + 1).toString().padStart(2, "0");
         const year = date.getFullYear();
         return `${day}/${month}/${year}`;
       }
-      
+
       return dateString;
     } catch (error) {
       return dateString;
@@ -203,7 +252,8 @@ const CallTracker = () => {
     try {
       // Fetch enquiries, call tracker history, and indents in parallel
       const [enquiryResult, historyResult, indentResult] = await Promise.all([
-        fetchAllEnquiries(),
+        fetchPendingEnquiries(),
+
         fetchCallTrackerHistory(),
         fetchAllIndents(),
       ]);
@@ -213,7 +263,7 @@ const CallTracker = () => {
       if (indentResult.success && indentResult.data) {
         indentResult.data.forEach((indent) => {
           if (indent.indent_number) {
-            indentDepartmentMap[indent.indent_number] = indent.department || '';
+            indentDepartmentMap[indent.indent_number] = indent.department || "";
           }
         });
       }
@@ -223,36 +273,37 @@ const CallTracker = () => {
         const processedEnquiryData = enquiryResult.data
           .filter((enquiry) => {
             // Filter enquiries where planned_date exists but actual_date is null
-            return enquiry.planned && !enquiry.actual_date;
+            return enquiry.planned && enquiry.actual == null;
           })
           .map((enquiry) => {
             const indentNo = enquiry.indent_number;
-            const departmentFromIndent = indentDepartmentMap[indentNo] || enquiry.department || '';
+            const departmentFromIndent =
+              indentDepartmentMap[indentNo] || enquiry.department || "";
 
             return {
               id: enquiry.id || enquiry.timestamp,
               indentNo: indentNo,
               candidateEnquiryNo: enquiry.candidate_enquiry_number,
-              applyingForPost: enquiry.applying_for_post || '',
+              applyingForPost: enquiry.applying_for_post || "",
               department: departmentFromIndent,
-              plannedDate: enquiry.planned || '',
-              candidateName: enquiry.candidate_name || '',
-              candidateDOB: enquiry.candidate_dob || '',
-              candidatePhone: enquiry.candidate_phone || '',
-              candidateEmail: enquiry.candidate_email || '',
-              previousCompany: enquiry.previous_company || '',
-              jobExperience: enquiry.job_experience || '',
-              lastSalary: enquiry.last_salary || '',
-              previousPosition: enquiry.previous_position || '',
-              reasonForLeaving: enquiry.reason_for_leaving || '',
-              maritalStatus: enquiry.marital_status || '',
-              lastEmployerMobile: enquiry.last_employer_mobile || '',
-              candidatePhoto: enquiry.candidate_photo || '',
-              candidateResume: enquiry.candidate_resume || '',
-              referenceBy: enquiry.reference_by || '',
-              presentAddress: enquiry.present_address || '',
-              aadharNo: enquiry.aadhar_no || '',
-              designation: enquiry.applying_for_post || '',
+              plannedDate: enquiry.planned || "",
+              candidateName: enquiry.candidate_name || "",
+              candidateDOB: enquiry.candidate_dob || "",
+              candidatePhone: enquiry.candidate_phone || "",
+              candidateEmail: enquiry.candidate_email || "",
+              previousCompany: enquiry.previous_company || "",
+              jobExperience: enquiry.job_experience || "",
+              lastSalary: enquiry.last_salary || "",
+              previousPosition: enquiry.previous_position || "",
+              reasonForLeaving: enquiry.reason_for_leaving || "",
+              maritalStatus: enquiry.marital_status || "",
+              lastEmployerMobile: enquiry.last_employer_mobile || "",
+              candidatePhoto: enquiry.candidate_photo || "",
+              candidateResume: enquiry.candidate_resume || "",
+              referenceBy: enquiry.reference_by || "",
+              presentAddress: enquiry.present_address || "",
+              aadharNo: enquiry.aadhar_no || "",
+              designation: enquiry.applying_for_post || "",
             };
           });
 
@@ -261,39 +312,39 @@ const CallTracker = () => {
         // Process follow-up data from call tracker history
         if (historyResult.success && historyResult.data) {
           const processedFollowUpData = historyResult.data.map((entry) => ({
-            enquiryNo: entry.candidate_enquiry_number || '',
-            status: entry.status || '',
+            enquiryNo: entry.candidate_enquiry_number || "",
+            status: entry.status || "",
           }));
           setFollowUpData(processedFollowUpData);
 
           // Process history data
           const processedHistoryData = historyResult.data.map((entry) => {
             // Format timestamp for display
-            let formattedTimestamp = '';
+            let formattedTimestamp = "";
             if (entry.created_at) {
               const date = new Date(entry.created_at);
-              const day = String(date.getDate()).padStart(2, '0');
-              const month = String(date.getMonth() + 1).padStart(2, '0');
+              const day = String(date.getDate()).padStart(2, "0");
+              const month = String(date.getMonth() + 1).padStart(2, "0");
               const year = date.getFullYear();
-              const hours = String(date.getHours()).padStart(2, '0');
-              const minutes = String(date.getMinutes()).padStart(2, '0');
-              const seconds = String(date.getSeconds()).padStart(2, '0');
+              const hours = String(date.getHours()).padStart(2, "0");
+              const minutes = String(date.getMinutes()).padStart(2, "0");
+              const seconds = String(date.getSeconds()).padStart(2, "0");
               formattedTimestamp = `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
             }
 
             // Format next_date for display
-            let formattedNextDate = '';
+            let formattedNextDate = "";
             if (entry.next_date) {
               formattedNextDate = formatDateForDisplay(entry.next_date);
             }
 
             return {
-              timestamp: formattedTimestamp || entry.timestamp || '',
-              indentNo: entry.indent_number || '',
-              enquiryNo: entry.candidate_enquiry_number || '',
-              status: entry.status || '',
-              candidateSays: entry.candidate_says || entry.details || '',
-              nextDate: formattedNextDate || '',
+              timestamp: formattedTimestamp || entry.timestamp || "",
+              indentNo: entry.indent_number || "",
+              enquiryNo: entry.candidate_enquiry_number || "",
+              status: entry.status || "",
+              candidateSays: entry.candidate_says || entry.details || "",
+              nextDate: formattedNextDate || "",
             };
           });
           setHistoryData(processedHistoryData);
@@ -308,23 +359,19 @@ const CallTracker = () => {
   }, []);
 
   useEffect(() => {
+    fetchPendingEnquiries();
     fetchAllData();
   }, [fetchAllData]);
 
-  const pendingData = enquiryData.filter(item => {
-    const latest = latestStatusMap[item.candidateEnquiryNo];
-    // Only show in pending if there's NO call tracker entry at all
-    return !latest;
-  });
-  
+  const pendingData = enquiryData;
 
   // Helper function to format DD/MM/YYYY dates
   const formatDateForDisplay = (dateString) => {
-    if (!dateString || dateString.trim() === '') return '-';
-    
+    if (!dateString || dateString.trim() === "") return "-";
+
     try {
-      if (typeof dateString === 'string' && dateString.includes('/')) {
-        const parts = dateString.split('/');
+      if (typeof dateString === "string" && dateString.includes("/")) {
+        const parts = dateString.split("/");
         if (parts.length === 3) {
           const day = parseInt(parts[0], 10);
           const month = parseInt(parts[1], 10);
@@ -333,50 +380,49 @@ const CallTracker = () => {
           }
         }
       }
-      
+
       const date = new Date(dateString);
       if (!isNaN(date.getTime())) {
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, "0");
+        const month = String(date.getMonth() + 1).padStart(2, "0");
         const year = date.getFullYear();
         return `${day}/${month}/${year}`;
       }
-      
+
       return dateString;
     } catch (error) {
-      console.error('Error formatting date:', dateString, error);
-      return dateString || '-';
+      console.error("Error formatting date:", dateString, error);
+      return dateString || "-";
     }
   };
 
   const handleCallClick = (item) => {
     setSelectedItem(item);
     setFormData({
-      candidateSays: '',
-      status: '',
-      nextDate: ''
+      candidateSays: "",
+      status: "",
+      nextDate: "",
     });
     setShowModal(true);
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
   const formatDOB = (dateString) => {
-    if (!dateString) return '';
+    if (!dateString) return "";
 
     let date;
 
     if (dateString instanceof Date) {
       date = dateString;
-    }
-    else if (typeof dateString === 'string' && dateString.includes('/')) {
-      const parts = dateString.split('/');
+    } else if (typeof dateString === "string" && dateString.includes("/")) {
+      const parts = dateString.split("/");
       if (parts.length === 3) {
         if (parseInt(parts[0]) > 12) {
           date = new Date(parts[2], parts[1] - 1, parts[0]);
@@ -384,8 +430,7 @@ const CallTracker = () => {
           date = new Date(parts[2], parts[0] - 1, parts[1]);
         }
       }
-    }
-    else {
+    } else {
       date = new Date(dateString);
     }
 
@@ -393,8 +438,8 @@ const CallTracker = () => {
       return dateString;
     }
 
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
     const year = date.getFullYear();
 
     return `${day}/${month}/${year}`;
@@ -405,7 +450,7 @@ const CallTracker = () => {
     setSubmitting(true);
 
     if (!formData.candidateSays || !formData.status) {
-      toast.error('Please fill all required fields');
+      toast.error("Please fill all required fields");
       setSubmitting(false);
       return;
     }
@@ -423,8 +468,8 @@ const CallTracker = () => {
       // Prepare call tracker entry data
       const callTrackerData = {
         timestamp: formattedTimestamp,
-        indent_number: selectedItem.indentNo || '',
-        candidate_enquiry_number: selectedItem.candidateEnquiryNo || '',
+        indent_number: selectedItem.indentNo || "",
+        candidate_enquiry_number: selectedItem.candidateEnquiryNo || "",
         status: formData.status,
         candidate_says: formData.candidateSays,
         next_date: formattedNextDate,
@@ -434,76 +479,78 @@ const CallTracker = () => {
       const result = await createCallTrackerEntry(callTrackerData);
 
       if (!result.success) {
-        throw new Error(result.error || 'Failed to create call tracker entry');
+        throw new Error(result.error || "Failed to create call tracker entry");
       }
 
       // If status is "Joining", update the enquiry
-      if (formData.status === 'Joining') {
-        const updateResult = await updateEnquiryOnJoining(selectedItem.candidateEnquiryNo);
+      if (formData.status === "Joining") {
+        const updateResult = await updateEnquiryOnJoining(
+          selectedItem.candidateEnquiryNo,
+        );
         if (!updateResult.success) {
-          console.warn('Failed to update enquiry on joining:', updateResult.error);
+          console.warn(
+            "Failed to update enquiry on joining:",
+            updateResult.error,
+          );
           // Don't throw error, just log warning as call tracker entry was created
         }
       }
 
-      toast.success('Update successful!');
+      toast.success("Update successful!");
       setShowModal(false);
       fetchAllData();
-
     } catch (error) {
-      console.error('Submission failed:', error);
+      console.error("Submission failed:", error);
       toast.error(`Failed to update: ${error.message}`);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const filteredPendingData = pendingData.filter(item => {
-    const matchesSearch = item.candidateName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const filteredPendingData = pendingData.filter((item) => {
+    const matchesSearch =
+      item.candidateName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.candidateEnquiryNo?.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesSearch;
   });
 
   // Helper functions for tabs
   const getFollowUpData = () => {
-    return latestHistoryData.filter(item => item.status === "Follow-up");
+    return latestHistoryData.filter((item) => item.status === "Follow-up");
   };
-  
 
   const getInterviewData = () => {
-    return latestHistoryData.filter(item => item.status === "Interview");
+    return latestHistoryData.filter((item) => item.status === "Interview");
   };
-  
 
   const getOnHoldData = () => {
-    return latestHistoryData.filter(item => item.status === "On Hold");
+    return latestHistoryData.filter((item) => item.status === "On Hold");
   };
-  
 
   const getHistoryData = () => {
-    return latestHistoryData.filter(item =>
-      ["Joining", "Reject", "Negotiation"].includes(item.status)
+    return latestHistoryData.filter((item) =>
+      ["Joining", "Reject", "Negotiation"].includes(item.status),
     );
   };
-  
 
   // Count functions for tabs
   const getFollowUpCount = () => {
-    return latestHistoryData.filter(item => item.status === "Follow-up").length;
+    return latestHistoryData.filter((item) => item.status === "Follow-up")
+      .length;
   };
-  
 
-        const getInterviewCount = () => {
-          return latestHistoryData.filter(item => item.status === "Interview").length;
-        };
+  const getInterviewCount = () => {
+    return latestHistoryData.filter((item) => item.status === "Interview")
+      .length;
+  };
 
   const getOnHoldCount = () => {
-    return latestHistoryData.filter(item => item.status === "On Hold").length;
+    return latestHistoryData.filter((item) => item.status === "On Hold").length;
   };
 
   const getHistoryCount = () => {
-    return latestHistoryData.filter(item =>
-      ["Joining", "Reject", "Negotiation"].includes(item.status)
+    return latestHistoryData.filter((item) =>
+      ["Joining", "Reject", "Negotiation"].includes(item.status),
     ).length;
   };
 
@@ -513,7 +560,7 @@ const CallTracker = () => {
         <h1 className="text-2xl font-bold text-gray-800">Call Tracker</h1>
         <button
           onClick={exportToExcel}
-          className="inline-flex items-center px-4 py-2 border border-green-600 rounded-md text-sm font-medium text-green-600 hover:bg-green-50 transition-all duration-200"
+          className="inline-flex items-center px-4 py-2 text-sm font-medium text-green-600 transition-all duration-200 border border-green-600 rounded-md hover:bg-green-50"
           title={`Export ${activeTab} data to Excel`}
         >
           <Download size={16} className="mr-2" />
@@ -522,73 +569,78 @@ const CallTracker = () => {
       </div>
 
       {/* Filter and Search */}
-      <div className="bg-white p-4 rounded-lg shadow flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0 md:space-x-4">
+      <div className="flex flex-col p-4 space-y-4 bg-white rounded-lg shadow md:flex-row md:items-center md:justify-between md:space-y-0 md:space-x-4">
         <div className="flex flex-1 max-w-md">
           <div className="relative w-full">
             <input
               type="text"
               placeholder="Search by candidate name or enquiry number..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-400 border-opacity-30 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-600"
+              className="w-full py-2 pl-10 pr-4 text-gray-600 bg-white border border-gray-400 rounded-lg border-opacity-30 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
             <Search
               size={20}
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-600 opacity-60"
+              className="absolute text-gray-600 transform -translate-y-1/2 left-3 top-1/2 opacity-60"
             />
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="overflow-hidden bg-white rounded-lg shadow">
         <div className="border-b border-gray-300 border-opacity-20">
           <nav className="flex -mb-px">
             <button
-              className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "pending"
+              className={`py-4 px-6 font-medium text-sm border-b-2 ${
+                activeTab === "pending"
                   ? "border-indigo-500 text-indigo-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
+              }`}
               onClick={() => setActiveTab("pending")}
             >
               <Clock size={16} className="inline mr-2" />
               Pending ({filteredPendingData.length})
             </button>
             <button
-              className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "followup"
+              className={`py-4 px-6 font-medium text-sm border-b-2 ${
+                activeTab === "followup"
                   ? "border-green-500 text-green-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
+              }`}
               onClick={() => setActiveTab("followup")}
             >
               <RefreshCw size={16} className="inline mr-2" />
               Follow-up ({getFollowUpCount()})
             </button>
             <button
-              className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "interview"
+              className={`py-4 px-6 font-medium text-sm border-b-2 ${
+                activeTab === "interview"
                   ? "border-blue-500 text-blue-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
+              }`}
               onClick={() => setActiveTab("interview")}
             >
               <Calendar size={16} className="inline mr-2" />
               Interview ({getInterviewCount()})
             </button>
             <button
-              className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "onhold"
+              className={`py-4 px-6 font-medium text-sm border-b-2 ${
+                activeTab === "onhold"
                   ? "border-yellow-500 text-yellow-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
+              }`}
               onClick={() => setActiveTab("onhold")}
             >
               <PauseCircle size={16} className="inline mr-2" />
               On Hold ({getOnHoldCount()})
             </button>
             <button
-              className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "history"
+              className={`py-4 px-6 font-medium text-sm border-b-2 ${
+                activeTab === "history"
                   ? "border-purple-500 text-purple-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
+              }`}
               onClick={() => setActiveTab("history")}
             >
               <CheckCircle size={16} className="inline mr-2" />
@@ -604,45 +656,48 @@ const CallTracker = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Action
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Indent No.
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Candidate Enquiry No.
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Applying For Post
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Department
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Candidate Name
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Phone
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Email
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Photo
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Resume
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                         Planned Date
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      Planned Date
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {!dataLoaded && filteredPendingData.length === 0 ? (
                     <tr>
-                      <td colSpan="11" className="px-6 py-4 text-center text-gray-500">
+                      <td
+                        colSpan="11"
+                        className="px-6 py-4 text-center text-gray-500"
+                      >
                         Loading data...
                       </td>
                     </tr>
@@ -658,33 +713,33 @@ const CallTracker = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <button
                             onClick={() => handleCallClick(item)}
-                            className="px-3 py-1 text-white bg-indigo-700 rounded-md hover:bg-opacity-90 text-sm"
+                            className="px-3 py-1 text-sm text-white bg-indigo-700 rounded-md hover:bg-opacity-90"
                           >
                             Call
                           </button>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.indentNo}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.candidateEnquiryNo}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.applyingForPost}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.department}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.candidateName}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.candidatePhone}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.candidateEmail}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.candidatePhoto ? (
                             <a
                               href={item.candidatePhoto}
@@ -698,7 +753,7 @@ const CallTracker = () => {
                             "-"
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.candidateResume ? (
                             <a
                               href={item.candidateResume}
@@ -712,7 +767,7 @@ const CallTracker = () => {
                             "-"
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {formatDateForDisplay(item.plannedDate)}
                         </td>
                       </tr>
@@ -728,25 +783,25 @@ const CallTracker = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Action
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Indent No
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Enquiry No
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Candidate Says
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Next Date
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Timestamp
                     </th>
                   </tr>
@@ -754,14 +809,19 @@ const CallTracker = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {!dataLoaded && getFollowUpData().length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                      <td
+                        colSpan="7"
+                        className="px-6 py-4 text-center text-gray-500"
+                      >
                         Loading data...
                       </td>
                     </tr>
                   ) : getFollowUpData().length === 0 ? (
                     <tr>
                       <td colSpan="7" className="px-6 py-12 text-center">
-                        <p className="text-gray-500">No follow-up calls found.</p>
+                        <p className="text-gray-500">
+                          No follow-up calls found.
+                        </p>
                       </td>
                     </tr>
                   ) : (
@@ -770,70 +830,71 @@ const CallTracker = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <button
                             onClick={() => {
-                              const enquiryItem = enquiryData.find(e => 
-                                e.candidateEnquiryNo === item.enquiryNo
+                              const enquiryItem = enquiryData.find(
+                                (e) => e.candidateEnquiryNo === item.enquiryNo,
                               );
-                              
+
                               if (enquiryItem) {
                                 handleCallClick(enquiryItem);
                               } else {
-                                const pendingItem = pendingData.find(p => 
-                                  p.candidateEnquiryNo === item.enquiryNo
+                                const pendingItem = pendingData.find(
+                                  (p) =>
+                                    p.candidateEnquiryNo === item.enquiryNo,
                                 );
-                                
+
                                 if (pendingItem) {
                                   handleCallClick(pendingItem);
                                 } else {
                                   const basicItem = {
                                     candidateEnquiryNo: item.enquiryNo,
                                     indentNo: item.indentNo,
-                                    candidateName: 'Candidate',
-                                    applyingForPost: '',
-                                    department: '',
-                                    candidatePhone: '',
-                                    candidateEmail: '',
-                                    previousCompany: '',
-                                    jobExperience: '',
-                                    lastSalary: '',
-                                    previousPosition: '',
-                                    reasonForLeaving: '',
-                                    maritalStatus: '',
-                                    lastEmployerMobile: '',
-                                    candidatePhoto: '',
-                                    candidateResume: '',
-                                    referenceBy: '',
-                                    presentAddress: '',
-                                    aadharNo: '',
-                                    designation: '',
-                                    id: item.timestamp || Date.now().toString()
+                                    candidateName: "Candidate",
+                                    applyingForPost: "",
+                                    department: "",
+                                    candidatePhone: "",
+                                    candidateEmail: "",
+                                    previousCompany: "",
+                                    jobExperience: "",
+                                    lastSalary: "",
+                                    previousPosition: "",
+                                    reasonForLeaving: "",
+                                    maritalStatus: "",
+                                    lastEmployerMobile: "",
+                                    candidatePhoto: "",
+                                    candidateResume: "",
+                                    referenceBy: "",
+                                    presentAddress: "",
+                                    aadharNo: "",
+                                    designation: "",
+                                    id: item.timestamp || Date.now().toString(),
                                   };
                                   handleCallClick(basicItem);
                                 }
                               }
                             }}
-                            className="px-3 py-1 text-white bg-green-600 rounded-md hover:bg-green-700 text-sm"
+                            className="px-3 py-1 text-sm text-white bg-green-600 rounded-md hover:bg-green-700"
                           >
                             Call
                           </button>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.indentNo}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.enquiryNo}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          <span className="px-2 py-1 text-xs text-green-800 bg-green-100 rounded-full">
                             {item.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.candidateSays}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.nextDate || "-"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.timestamp || "-"}
                         </td>
                       </tr>
@@ -849,25 +910,25 @@ const CallTracker = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Action
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Indent No
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Enquiry No
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Interview Details
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Schedule Date
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Timestamp
                     </th>
                   </tr>
@@ -875,14 +936,19 @@ const CallTracker = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {!dataLoaded && getInterviewData().length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                      <td
+                        colSpan="7"
+                        className="px-6 py-4 text-center text-gray-500"
+                      >
                         Loading data...
                       </td>
                     </tr>
                   ) : getInterviewData().length === 0 ? (
                     <tr>
                       <td colSpan="7" className="px-6 py-12 text-center">
-                        <p className="text-gray-500">No interview calls found.</p>
+                        <p className="text-gray-500">
+                          No interview calls found.
+                        </p>
                       </td>
                     </tr>
                   ) : (
@@ -891,70 +957,71 @@ const CallTracker = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <button
                             onClick={() => {
-                              const enquiryItem = enquiryData.find(e => 
-                                e.candidateEnquiryNo === item.enquiryNo
+                              const enquiryItem = enquiryData.find(
+                                (e) => e.candidateEnquiryNo === item.enquiryNo,
                               );
-                              
+
                               if (enquiryItem) {
                                 handleCallClick(enquiryItem);
                               } else {
-                                const pendingItem = pendingData.find(p => 
-                                  p.candidateEnquiryNo === item.enquiryNo
+                                const pendingItem = pendingData.find(
+                                  (p) =>
+                                    p.candidateEnquiryNo === item.enquiryNo,
                                 );
-                                
+
                                 if (pendingItem) {
                                   handleCallClick(pendingItem);
                                 } else {
                                   const basicItem = {
                                     candidateEnquiryNo: item.enquiryNo,
                                     indentNo: item.indentNo,
-                                    candidateName: 'Candidate',
-                                    applyingForPost: '',
-                                    department: '',
-                                    candidatePhone: '',
-                                    candidateEmail: '',
-                                    previousCompany: '',
-                                    jobExperience: '',
-                                    lastSalary: '',
-                                    previousPosition: '',
-                                    reasonForLeaving: '',
-                                    maritalStatus: '',
-                                    lastEmployerMobile: '',
-                                    candidatePhoto: '',
-                                    candidateResume: '',
-                                    referenceBy: '',
-                                    presentAddress: '',
-                                    aadharNo: '',
-                                    designation: '',
-                                    id: item.timestamp || Date.now().toString()
+                                    candidateName: "Candidate",
+                                    applyingForPost: "",
+                                    department: "",
+                                    candidatePhone: "",
+                                    candidateEmail: "",
+                                    previousCompany: "",
+                                    jobExperience: "",
+                                    lastSalary: "",
+                                    previousPosition: "",
+                                    reasonForLeaving: "",
+                                    maritalStatus: "",
+                                    lastEmployerMobile: "",
+                                    candidatePhoto: "",
+                                    candidateResume: "",
+                                    referenceBy: "",
+                                    presentAddress: "",
+                                    aadharNo: "",
+                                    designation: "",
+                                    id: item.timestamp || Date.now().toString(),
                                   };
                                   handleCallClick(basicItem);
                                 }
                               }
                             }}
-                            className="px-3 py-1 text-white bg-blue-600 rounded-md hover:bg-blue-700 text-sm"
+                            className="px-3 py-1 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700"
                           >
                             Call
                           </button>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.indentNo}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.enquiryNo}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          <span className="px-2 py-1 text-xs text-blue-800 bg-blue-100 rounded-full">
                             {item.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.candidateSays}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.nextDate || "-"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.timestamp || "-"}
                         </td>
                       </tr>
@@ -970,25 +1037,25 @@ const CallTracker = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Action
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Indent No
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Enquiry No
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Reason For Holding
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       ReCalling Date
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Timestamp
                     </th>
                   </tr>
@@ -996,7 +1063,10 @@ const CallTracker = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {!dataLoaded && getOnHoldData().length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                      <td
+                        colSpan="7"
+                        className="px-6 py-4 text-center text-gray-500"
+                      >
                         Loading data...
                       </td>
                     </tr>
@@ -1012,70 +1082,71 @@ const CallTracker = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <button
                             onClick={() => {
-                              const enquiryItem = enquiryData.find(e => 
-                                e.candidateEnquiryNo === item.enquiryNo
+                              const enquiryItem = enquiryData.find(
+                                (e) => e.candidateEnquiryNo === item.enquiryNo,
                               );
-                              
+
                               if (enquiryItem) {
                                 handleCallClick(enquiryItem);
                               } else {
-                                const pendingItem = pendingData.find(p => 
-                                  p.candidateEnquiryNo === item.enquiryNo
+                                const pendingItem = pendingData.find(
+                                  (p) =>
+                                    p.candidateEnquiryNo === item.enquiryNo,
                                 );
-                                
+
                                 if (pendingItem) {
                                   handleCallClick(pendingItem);
                                 } else {
                                   const basicItem = {
                                     candidateEnquiryNo: item.enquiryNo,
                                     indentNo: item.indentNo,
-                                    candidateName: 'Candidate',
-                                    applyingForPost: '',
-                                    department: '',
-                                    candidatePhone: '',
-                                    candidateEmail: '',
-                                    previousCompany: '',
-                                    jobExperience: '',
-                                    lastSalary: '',
-                                    previousPosition: '',
-                                    reasonForLeaving: '',
-                                    maritalStatus: '',
-                                    lastEmployerMobile: '',
-                                    candidatePhoto: '',
-                                    candidateResume: '',
-                                    referenceBy: '',
-                                    presentAddress: '',
-                                    aadharNo: '',
-                                    designation: '',
-                                    id: item.timestamp || Date.now().toString()
+                                    candidateName: "Candidate",
+                                    applyingForPost: "",
+                                    department: "",
+                                    candidatePhone: "",
+                                    candidateEmail: "",
+                                    previousCompany: "",
+                                    jobExperience: "",
+                                    lastSalary: "",
+                                    previousPosition: "",
+                                    reasonForLeaving: "",
+                                    maritalStatus: "",
+                                    lastEmployerMobile: "",
+                                    candidatePhoto: "",
+                                    candidateResume: "",
+                                    referenceBy: "",
+                                    presentAddress: "",
+                                    aadharNo: "",
+                                    designation: "",
+                                    id: item.timestamp || Date.now().toString(),
                                   };
                                   handleCallClick(basicItem);
                                 }
                               }
                             }}
-                            className="px-3 py-1 text-white bg-yellow-600 rounded-md hover:bg-yellow-700 text-sm"
+                            className="px-3 py-1 text-sm text-white bg-yellow-600 rounded-md hover:bg-yellow-700"
                           >
                             Call
                           </button>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.indentNo}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.enquiryNo}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          <span className="px-2 py-1 text-xs text-yellow-800 bg-yellow-100 rounded-full">
                             {item.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.candidateSays}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.nextDate || "-"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.timestamp || "-"}
                         </td>
                       </tr>
@@ -1091,22 +1162,22 @@ const CallTracker = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Indent No
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Enquiry No
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Details
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Date
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Timestamp
                     </th>
                   </tr>
@@ -1114,7 +1185,10 @@ const CallTracker = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {!dataLoaded && getHistoryData().length === 0 ? (
                     <tr>
-                      <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
+                      <td
+                        colSpan="6"
+                        className="px-6 py-4 text-center text-gray-500"
+                      >
                         Loading data...
                       </td>
                     </tr>
@@ -1127,34 +1201,34 @@ const CallTracker = () => {
                   ) : (
                     getHistoryData().map((item, index) => (
                       <tr key={index} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.indentNo}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.enquiryNo}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           <span
                             className={`px-2 py-1 text-xs rounded-full ${
                               item.status === "Joining"
                                 ? "bg-green-100 text-green-800"
                                 : item.status === "Reject"
-                                ? "bg-red-100 text-red-800"
-                                : item.status === "Negotiation"
-                                ? "bg-purple-100 text-purple-800"
-                                : "bg-gray-100 text-gray-800"
+                                  ? "bg-red-100 text-red-800"
+                                  : item.status === "Negotiation"
+                                    ? "bg-purple-100 text-purple-800"
+                                    : "bg-gray-100 text-gray-800"
                             }`}
                           >
                             {item.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.candidateSays}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.nextDate || "-"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.timestamp || "-"}
                         </td>
                       </tr>
@@ -1169,9 +1243,9 @@ const CallTracker = () => {
 
       {/* Call Modal */}
       {showModal && selectedItem && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-md">
-            <div className="flex justify-between items-center p-6 border-b border-gray-300">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="w-full max-w-md bg-white rounded-lg shadow-lg">
+            <div className="flex items-center justify-between p-6 border-b border-gray-300">
               <h3 className="text-lg font-medium text-gray-900">
                 Call Tracker
               </h3>
@@ -1184,36 +1258,36 @@ const CallTracker = () => {
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block mb-1 text-sm font-medium text-gray-700">
                   Candidate Enquiry No.
                 </label>
                 <input
                   type="text"
                   value={selectedItem.candidateEnquiryNo}
                   disabled
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-100 text-gray-700"
+                  className="w-full px-3 py-2 text-gray-700 bg-gray-100 border border-gray-300 rounded-md"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block mb-1 text-sm font-medium text-gray-700">
                   Indent No.
                 </label>
                 <input
                   type="text"
                   value={selectedItem.indentNo}
                   disabled
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-100 text-gray-700"
+                  className="w-full px-3 py-2 text-gray-700 bg-gray-100 border border-gray-300 rounded-md"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block mb-1 text-sm font-medium text-gray-700">
                   Status*
                 </label>
                 <select
                   name="status"
                   value={formData.status}
                   onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-700"
+                  className="w-full px-3 py-2 text-gray-700 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   required
                 >
                   <option value="">Select Status</option>
@@ -1227,7 +1301,7 @@ const CallTracker = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block mb-1 text-sm font-medium text-gray-700">
                   {formData.status === "Negotiation"
                     ? "What's Customer Requirement *"
                     : formData.status === "On Hold"
@@ -1237,15 +1311,15 @@ const CallTracker = () => {
                         : formData.status === "Reject"
                           ? "Reason for Rejecting the Candidate *"
                           : formData.status === "Interview"
-                          ? "Interview Details *"
-                          : "What Did The Candidate Says *"}
+                            ? "Interview Details *"
+                            : "What Did The Candidate Says *"}
                 </label>
                 <textarea
                   name="candidateSays"
                   value={formData.candidateSays}
                   onChange={handleInputChange}
                   rows={3}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-700"
+                  className="w-full px-3 py-2 text-gray-700 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   required
                 />
               </div>
@@ -1253,7 +1327,7 @@ const CallTracker = () => {
               {formData.status &&
                 !["Joining", "Reject"].includes(formData.status) && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block mb-1 text-sm font-medium text-gray-700">
                       {formData.status === "Interview"
                         ? "Schedule Date *"
                         : formData.status === "On Hold"
@@ -1265,30 +1339,31 @@ const CallTracker = () => {
                       name="nextDate"
                       value={formData.nextDate}
                       onChange={handleInputChange}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-700"
+                      className="w-full px-3 py-2 text-gray-700 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       required
                     />
                   </div>
                 )}
 
-              <div className="flex justify-end space-x-2 pt-4">
+              <div className="flex justify-end pt-4 space-x-2">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className={`px-4 py-2 text-white bg-indigo-700 rounded-md hover:bg-indigo-800 min-h-[42px] flex items-center justify-center ${submitting ? "opacity-90 cursor-not-allowed" : ""
-                    }`}
+                  className={`px-4 py-2 text-white bg-indigo-700 rounded-md hover:bg-indigo-800 min-h-[42px] flex items-center justify-center ${
+                    submitting ? "opacity-90 cursor-not-allowed" : ""
+                  }`}
                   disabled={submitting}
                 >
                   {submitting ? (
                     <div className="flex items-center">
                       <svg
-                        className="animate-spin h-4 w-4 text-white mr-2"
+                        className="w-4 h-4 mr-2 text-white animate-spin"
                         xmlns="http://www.w3.org/2000/svg"
                         fill="none"
                         viewBox="0 0 24 24"

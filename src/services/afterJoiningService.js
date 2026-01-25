@@ -7,94 +7,106 @@ export const fetchAfterJoiningData = async () => {
   try {
     const { data, error } = await supabase
       .from("joining")
-      .select(`
-        *,
-        enquiries (
-          candidate_name,
-          applying_for_post,
-          department,
-          present_address,
-          candidate_phone,
-          candidate_email,
-          candidate_photo,
-          candidate_resume
-        )
-      `)
+      .select("*")
       .order("created_at", { ascending: false });
 
     if (error) throw error;
 
-    const processedData = data.map(item => ({
-      // identifiers
-      joiningNo: item.serial_no,
-      enquiryNo: item.enquiry_no,
+    // Get enquiry data separately to avoid relationship conflicts
+    const enquiryNumbers = [
+      ...new Set(data.map((item) => item.enquiry_no).filter(Boolean)),
+    ];
 
-      // basic details
-      candidateName: item.name_as_per_aadhar || item.enquiries?.candidate_name || "",
-      fatherName: item.father_name || "",
-      dateOfJoining: item.date_of_joining,
-      designation: item.designation || item.enquiries?.applying_for_post || "",
-      department: item.department || item.enquiries?.department || "",
+    let enquiryDataMap = {};
+    if (enquiryNumbers.length > 0) {
+      const { data: enquiries, error: enquiryError } = await supabase
+        .from("enquiries")
+        .select("*")
+        .in("candidate_enquiry_number", enquiryNumbers);
 
-      // address & contact
-      currentAddress: item.current_address || item.enquiries?.present_address || "",
-      mobileNo: item.mobile_no || item.enquiries?.candidate_phone || "",
-      personalEmail: item.personal_email || item.enquiries?.candidate_email || "",
+      if (!enquiryError && enquiries) {
+        enquiries.forEach((e) => {
+          enquiryDataMap[e.candidate_enquiry_number] = e;
+        });
+      }
+    }
 
-      // after joining tracking
-      plannedDate: item.planned_after_joining_date,
-      actual: item.actual_after_joining_date,
+    const processedData = data.map((item) => {
+      const enquiry = enquiryDataMap[item.enquiry_no];
 
-      // after joining form fields
-      employeeCode: item.employee_code || "",
-      salaryConfirmation: item.salary_confirmation || "",
-      reportingOfficer: item.reporting_officer || "",
-      baseAddress: item.base_address || "",
-      punchCode: item.punch_code || "",
-      emailId: item.email_id || "",
-      emailPassword: item.official_email_password || "",
+      return {
+        // identifiers
+        joiningNo: item.serial_no,
+        enquiryNo: item.enquiry_no,
 
-      // bank / PF
-      currentBankAccountNo: item.current_bank_account_no || "",
-      currentBankIfsc: item.current_bank_ifsc || "",
-      pf: item.pf || "",
-      pfEligible: item.eligible_for_pf || "",
-      esicEligible: item.eligible_for_esic || "",
+        // basic details
+        candidateName: item.name_as_per_aadhar || enquiry?.candidate_name || "",
+        fatherName: item.father_name || "",
+        dateOfJoining: item.date_of_joining,
+        designation: item.designation || enquiry?.applying_for_post || "",
+        department: item.department || enquiry?.department || "",
 
-      // documents
-      idProofCopy: item.id_proof_copy || "",
-      joiningLetter: item.joining_letter || "",
-      interviewAssessmentSheet: item.interview_assessment_sheet || "",
-      manualImage: item.manual_image || "",
+        // address & contact
+        currentAddress: item.current_address || enquiry?.present_address || "",
+        mobileNo: item.mobile_no || enquiry?.candidate_phone || "",
+        personalEmail: item.personal_email || enquiry?.candidate_email || "",
 
-      // assets
-      laptop: item.laptop || "",
-      laptopImage: item.laptop_image || "",
-      mobile: item.mobile || "",
-      mobileImage: item.mobile_image || "",
-      asset1Name: item.asset1_name || "",
-      asset1Image: item.asset1_image || "",
-      asset2Name: item.asset2_name || "",
-      asset2Image: item.asset2_image || "",
-      asset3Name: item.asset3_name || "",
-      asset3Image: item.asset3_image || "",
+        // after joining tracking
+        plannedDate: item.planned_after_joining_date,
+        actual: item.actual_after_joining_date,
 
-      // misc
-      incentiveCategory: item.incentive_category || "",
-      attendanceMode: item.after_joining_attendance_mode || "",
-      afterJoiningDepartment: item.after_joining_department || "",
-      remarks: item.remarks || "",
-      joiningPlace: item.after_joining_joining_place || "",
-      nextSalaryIncrementDate: item.next_salary_increment_date || "",
-      companyName: item.after_joining_company_name || "",
+        // after joining form fields
+        employeeCode: item.employee_code || "",
+        salaryConfirmation: item.salary_confirmation || "",
+        reportingOfficer: item.reporting_officer || "",
+        baseAddress: item.base_address || "",
+        punchCode: item.punch_code || "",
+        emailId: item.email_id || "",
+        emailPassword: item.official_email_password || "",
 
-      // personal
-      bloodGroup: item.blood_group || "",
-      identificationMarks: item.identification_marks || "",
-    }));
+        // bank / PF
+        currentBankAccountNo: item.current_bank_account_no || "",
+        currentBankIfsc: item.current_bank_ifsc || "",
+        pf: item.pf || "",
+        pfEligible: item.eligible_for_pf || "",
+        esicEligible: item.eligible_for_esic || "",
 
-    const pending = processedData.filter(r => !r.actual);
-    const history = processedData.filter(r => r.actual);
+        // documents
+        idProofCopy: item.id_proof_copy || "",
+        joiningLetter: item.joining_letter || "",
+        interviewAssessmentSheet: item.interview_assessment_sheet || "",
+        manualImage: item.manual_image || "",
+
+        // assets
+        laptop: item.laptop || "",
+        laptopImage: item.laptop_image || "",
+        mobile: item.mobile || "",
+        mobileImage: item.mobile_image || "",
+        asset1Name: item.asset1_name || "",
+        asset1Image: item.asset1_image || "",
+        asset2Name: item.asset2_name || "",
+        asset2Image: item.asset2_image || "",
+        asset3Name: item.asset3_name || "",
+        asset3Image: item.asset3_image || "",
+
+        // misc
+        incentiveCategory: item.incentive_category || "",
+        attendanceMode: item.after_joining_attendance_mode || "",
+        afterJoiningDepartment: item.after_joining_department || "",
+        remarks: item.remarks || "",
+        joiningPlace: item.after_joining_joining_place || "",
+        nextSalaryIncrementDate: item.next_salary_increment_date || "",
+        companyName: item.after_joining_company_name || "",
+
+        // personal
+        bloodGroup: item.blood_group || "",
+        identificationMarks: item.identification_marks || "",
+        salaryAmount: item.salary || "",
+      };
+    });
+
+    const pending = processedData.filter((r) => !r.actual);
+    const history = processedData.filter((r) => r.actual);
 
     return { success: true, pending, history };
   } catch (error) {
@@ -184,11 +196,9 @@ export const fetchReportingOfficers = async () => {
 
     if (error) throw error;
 
-    const officers = [...new Set(
-      data
-        .map(row => row.reporting_officer)
-        .filter(Boolean)
-    )];
+    const officers = [
+      ...new Set(data.map((row) => row.reporting_officer).filter(Boolean)),
+    ];
 
     return { success: true, data: officers };
   } catch (error) {
@@ -196,7 +206,6 @@ export const fetchReportingOfficers = async () => {
     return { success: false, data: [] };
   }
 };
-
 
 /**
  * Fetch departments
@@ -213,7 +222,7 @@ export const fetchDepartments = async () => {
 
     return {
       success: true,
-      data: [...new Set(data.map(r => r.department))]
+      data: [...new Set(data.map((r) => r.department))],
     };
   } catch {
     return { success: true, data: [] };
@@ -235,7 +244,7 @@ export const fetchDesignations = async () => {
 
     return {
       success: true,
-      data: [...new Set(data.map(r => r.designation))]
+      data: [...new Set(data.map((r) => r.designation))],
     };
   } catch {
     return { success: true, data: [] };

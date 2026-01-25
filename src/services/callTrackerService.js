@@ -5,25 +5,27 @@ export const fetchPendingEnquiries = async () => {
   try {
     const { data, error } = await supabase
       .from("enquiries")
-      .select(`
+      .select(
+        `
         *,
-        indents!inner (
+        indents!inner(
           indent_number,
           department
         )
-      `)
+      `,
+      )
       .not("planned", "is", null)
-      .is("actual", null)   // <-- correct
+      .is("actual", null) // ✅ correct column
       .order("created_at", { ascending: false });
 
     if (error) throw error;
+    console.log("Fetched Pending Enquiries:", data);
     return { success: true, data: data || [] };
   } catch (error) {
     console.error("Error fetching pending enquiries:", error);
     return { success: false, error: error.message };
   }
 };
-
 
 // Fetch all call tracker entries (follow-up history)
 export const fetchCallTrackerHistory = async () => {
@@ -64,7 +66,7 @@ export const updateEnquiryOnJoining = async (enquiryNumber) => {
       .from("enquiries")
       .update({
         actual: new Date().toISOString(),
-        track_status: "Joining"
+        track_status: "Joining",
       })
       .eq("candidate_enquiry_number", enquiryNumber)
       .select();
@@ -77,19 +79,20 @@ export const updateEnquiryOnJoining = async (enquiryNumber) => {
   }
 };
 
-
 // Get enquiry details by enquiry number
 export const getEnquiryByNumber = async (enquiryNumber) => {
   try {
     const { data, error } = await supabase
       .from("enquiries")
-      .select(`
+      .select(
+        `
         *,
         indents!inner (
           indent_number,
           department
         )
-      `)
+      `,
+      )
       .eq("candidate_enquiry_number", enquiryNumber)
       .single();
 

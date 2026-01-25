@@ -7,23 +7,25 @@ export const fetchAfterLeavingProcessData = async () => {
   console.log("Fetching after leaving process data...");
   try {
     const { data, error } = await supabase
-  .from("joining")
-  .select(`
+      .from("joining")
+      .select(
+        `
     *,
     enquiries (
       candidate_name,
       applying_for_post,
       department
     )
-  `)
-  .not("actual_after_joining_date", "is", null)
-  .order("created_at", { ascending: false });
+  `,
+      )
+      .not("actual_after_joining_date", "is", null)
+      .order("created_at", { ascending: false });
 
-console.log("Data fetched successfully");
-console.log(data);
+    console.log("Data fetched successfully");
+    console.log(data);
     if (error) throw error;
 
-    const processedData = data.map(item => ({
+    const processedData = data.map((item) => ({
       // Basic Info
       id: item.id,
       serialNumber: item.serial_no,
@@ -36,40 +38,44 @@ console.log(data);
       department: item.department || item.enquiries?.department || "",
       reportingOfficer: item.reporting_officer || "",
       assignAssets: item.laptop || item.mobile || item.asset1_name || "", // Simplified legacy field
-      
+
       // Approval System
-      approvalPlanned: item.planned_after_leaving_approval_date || item.actual_leaving_date || "",
+      approvalPlanned:
+        item.planned_after_leaving_approval_date ||
+        item.actual_leaving_date ||
+        "",
       approvalActual: item.actual_after_leaving_approval_date || "",
       approvalStatus: item.after_leaving_approval_status || "",
       approvalRemarks: item.after_leaving_approval_remarks || "",
-      
+
       // Reporting Manager
-      reportingManagerPlanned: item.planned_reporting_manager_approval_date || "",
+      reportingManagerPlanned:
+        item.planned_reporting_manager_approval_date || "",
       reportingManagerActual: item.actual_reporting_manager_approval_date || "",
       reportingManagerStatus: item.reporting_manager_approval_status || "",
       reportingManagerRemarks: item.reporting_manager_remarks || "",
       reportingManagerProcessType: item.reporting_manager_process_type || "",
       reportingManagerTempBackup: item.reporting_manager_temp_backup_name || "",
-      
+
       // IT Department
       itDeptPlanned: item.planned_it_clearance_date || "",
       itDeptActual: item.actual_it_clearance_date || "",
       itDeptSummary: item.it_clearance_summary || "",
-      
+
       // Admin Department
       adminDeptPlanned: item.planned_admin_clearance_date || "",
       adminDeptActual: item.actual_admin_clearance_date || "",
       adminDeptSummary: item.admin_clearance_summary || "",
-      
+
       // Account Department
       accountDeptPlanned: item.planned_account_clearance_date || "",
       accountDeptActual: item.actual_account_clearance_date || "",
       accountDeptSummary: item.account_clearance_summary || "",
-      
+
       // Store Department
       storeDeptPlanned: item.planned_store_clearance_date || "",
       storeDeptActual: item.actual_store_clearance_date || "",
-      storeDeptSummary: item.store_clearance_summary || ""
+      storeDeptSummary: item.store_clearance_summary || "",
     }));
 
     return { success: true, data: processedData };
@@ -82,7 +88,11 @@ console.log(data);
 /**
  * Update a specific stage in the after-leaving process
  */
-export const updateAfterLeavingStage = async (employeeId, stage, updateData) => {
+export const updateAfterLeavingStage = async (
+  employeeId,
+  stage,
+  updateData,
+) => {
   try {
     const { data, error } = await supabase
       .from("joining")
@@ -127,14 +137,22 @@ export const fetchAfterLeavingMasterData = async () => {
     if (error) throw error;
 
     // Extract unique departments
-    const departments = [...new Set(data.map(item => item.department).filter(Boolean))];
-    
+    const departments = [
+      ...new Set(data.map((item) => item.department).filter(Boolean)),
+    ];
+
     // Extract social sites (based on common keywords)
-    const socialSites = [...new Set(data.map(item => {
-        // This is a bit heuristic, but matches the Google Sheets logic
-        const val = item.social_site || item.source;
-        return val;
-    }).filter(Boolean))];
+    const socialSites = [
+      ...new Set(
+        data
+          .map((item) => {
+            // This is a bit heuristic, but matches the Google Sheets logic
+            const val = item.social_site || item.source;
+            return val;
+          })
+          .filter(Boolean),
+      ),
+    ];
 
     return { success: true, departments, socialSites };
   } catch (error) {

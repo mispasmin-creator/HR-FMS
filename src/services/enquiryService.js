@@ -86,21 +86,28 @@ export const generateNextCandidateNumber = async () => {
   try {
     const { data, error } = await supabase
       .from("enquiries")
-      .select("candidate_enquiry_number")
-      .order("created_at", { ascending: false })
-      .limit(1);
+      .select("candidate_enquiry_number");
 
     if (error) throw error;
 
     let maxNumber = 0;
+
+    // Loop through ALL records and find the highest number
     if (data && data.length > 0) {
-      const lastNumber = data[0].candidate_enquiry_number;
-      const match = lastNumber.toString().match(/ENQ-(\d+)/i);
-      if (match && match[1]) {
-        maxNumber = parseInt(match[1], 10);
-      }
+      data.forEach((record) => {
+        const match = record.candidate_enquiry_number
+          .toString()
+          .match(/ENQ-(\d+)/i);
+        if (match && match[1]) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNumber) {
+            maxNumber = num;
+          }
+        }
+      });
     }
 
+    console.log("Max enquiry number found:", maxNumber);
     return `ENQ-${String(maxNumber + 1).padStart(2, "0")}`;
   } catch (error) {
     console.error("Error generating candidate number:", error);
@@ -198,7 +205,7 @@ export const fetchEnquiriesWithCompletedIndents = async () => {
           actual_2,
           planned_2
         )
-      `
+      `,
       )
       .not("indents.actual_2", "is", null)
       .not("indents.planned_2", "is", null)
