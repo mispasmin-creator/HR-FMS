@@ -20,8 +20,9 @@ import {
   confirmJoining,
 } from "../services/joiningService";
 import { fetchAllEnquiries } from "../services/enquiryService";
-
+import { fetchDesignations } from "../services/afterJoiningService";
 const Joining = () => {
+  const [designationOptions, setDesignationOptions] = useState([]);
   const [activeTab, setActiveTab] = useState("pending");
   const [searchTerm, setSearchTerm] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -250,6 +251,20 @@ const Joining = () => {
 
   useEffect(() => {
     fetchJoiningData();
+  }, []);
+  useEffect(() => {
+    const loadDesignations = async () => {
+      try {
+        const result = await fetchDesignations();
+        if (result.success && result.data) {
+          setDesignationOptions(result.data);
+        }
+      } catch (error) {
+        console.error("Error fetching designations:", error);
+      }
+    };
+
+    loadDesignations();
   }, []);
 
   const handleViewClick = (item) => {
@@ -1263,12 +1278,23 @@ const Joining = () => {
                   <label className="block mb-1 text-sm font-medium text-gray-700">
                     Designation
                   </label>
-                  <input
-                    type="text"
-                    disabled
-                    value={selectedItem.designation}
-                    className="w-full px-3 py-2 text-gray-700 border border-gray-300 rounded-md"
-                  />
+                  <select
+                    name="designation"
+                    value={
+                      joiningFormData.designation ||
+                      selectedItem.designation ||
+                      ""
+                    }
+                    onChange={handleJoiningInputChange}
+                    className="w-full px-3 py-2 text-gray-700 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">Select Designation</option>
+                    {designationOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block mb-1 text-sm font-medium text-gray-700">
