@@ -12,6 +12,7 @@ const Indent = () => {
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
     post: "",
+    customPost: "",
     gender: "",
     company: "",
     department: "",
@@ -25,6 +26,7 @@ const Indent = () => {
   });
 
   const [indentData, setIndentData] = useState([]);
+  const [postOptions, setPostOptions] = useState([]);
   const [filteredIndentData, setFilteredIndentData] = useState([]);
   const [showCompleted, setShowCompleted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -37,6 +39,16 @@ const Indent = () => {
       const result = await fetchAllIndents();
       if (result.success) {
         setIndentData(result.data);
+        // derive unique post options from existing indents
+        try {
+          const posts = Array.from(
+            new Set((result.data || []).map((i) => i.post).filter(Boolean)),
+          );
+          setPostOptions(posts);
+        } catch (e) {
+          console.error("Error deriving post options:", e);
+          setPostOptions([]);
+        }
         // Initial filter - hide completed entries
         const filtered = result.data.filter(
           (item) =>
@@ -162,7 +174,13 @@ const Indent = () => {
       e.preventDefault();
 
       // Better validation - trim and check for actual values
-      const hasPost = formData.post && formData.post.trim() !== "";
+      const hasPost =
+        (formData.post &&
+          formData.post !== "Other" &&
+          formData.post.trim() !== "") ||
+        (formData.post === "Other" &&
+          formData.customPost &&
+          formData.customPost.trim() !== "");
       const hasGender = formData.gender && formData.gender.trim() !== "";
       const hasCompany = formData.company && formData.company.trim() !== "";
       const hasNumberOfPost =
@@ -203,11 +221,14 @@ const Indent = () => {
         const formattedDate = formatDateForDatabase(formData.completionDate);
 
         // Prepare data matching original column structure
+        const postValue =
+          formData.post === "Other" ? formData.customPost : formData.post;
+
         const newIndent = {
           timestamp,
           indent_number: indentNumber,
           company: formData.company,
-          post: formData.post,
+          post: postValue,
           gender: formData.gender,
           prefer: formData.prefer || "Any",
           no_of_post: parseInt(formData.numberOfPost) || 0,
@@ -237,6 +258,7 @@ const Indent = () => {
           toast.success("Indent created successfully!");
           setFormData({
             post: "",
+            customPost: "",
             company: "",
             gender: "",
             department: "",
@@ -277,6 +299,7 @@ const Indent = () => {
   const handleCancel = useCallback(() => {
     setFormData({
       post: "",
+      customPost: "",
       gender: "",
       department: "",
       prefer: "",
@@ -374,15 +397,37 @@ const Indent = () => {
                 <label className="block mb-1 text-sm font-medium text-gray-700">
                   Post*
                 </label>
-                <input
-                  type="text"
+                <select
                   name="post"
                   value={formData.post}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Enter post title"
                   required
-                />
+                >
+                  <option value="" disabled>
+                    Select a post
+                  </option>
+                  {postOptions.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                  <option value="Other">Other</option>
+                </select>
+
+                {formData.post === "Other" && (
+                  <div className="mt-2">
+                    <input
+                      type="text"
+                      name="customPost"
+                      value={formData.customPost}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder="Enter custom post title"
+                      required
+                    />
+                  </div>
+                )}
               </div>
 
               <div>
