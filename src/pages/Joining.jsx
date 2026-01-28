@@ -572,19 +572,29 @@ const Joining = () => {
       const result = await createJoiningRecord(joiningRecord);
 
       if (!result.success) {
-        throw new Error(result.error);
+        // Check if it's a joining limit error
+        if (result.errorType === "JOINING_LIMIT_REACHED") {
+          toast.error(result.error);
+        } else if (result.errorType === "INVALID_ENQUIRY") {
+          toast.error(result.error);
+        } else {
+          toast.error(result.error || "Failed to create joining record");
+        }
+        return;
       }
 
       // Update enquiry status to Joined
       await confirmJoining(selectedItem.candidateEnquiryNo);
 
-      toast.success("Employee added successfully! Joining ID: " + serialNumber);
+      toast.success(
+        "Employee added successfully! Joining ID: " + result.data.serial_no,
+      );
       setShowJoiningModal(false);
       setSelectedItem(null);
       fetchJoiningData();
     } catch (error) {
       console.error("Error submitting joining form:", error);
-      toast.error(`Failed to submit joining form: ${error.message}`);
+      toast.error(error.message || "Failed to submit joining form");
     } finally {
       setSubmitting(false);
     }

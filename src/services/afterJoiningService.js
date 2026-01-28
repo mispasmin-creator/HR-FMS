@@ -166,19 +166,21 @@ export const generateNextEmployeeCode = async () => {
       .from("joining")
       .select("employee_code")
       .not("employee_code", "is", null)
-      .neq("employee_code", "")
-      .order("employee_code", { ascending: false })
-      .limit(1);
+      .neq("employee_code", "");
 
     if (error) throw error;
 
-    let lastNumber = 0;
-    if (data.length) {
-      const match = data[0].employee_code.match(/PMMPL-(\d+)/);
-      if (match) lastNumber = parseInt(match[1], 10);
-    }
+    let maxNumber = 0;
 
-    return `PMMPL-${String(lastNumber + 1).padStart(3, "0")}`;
+    data.forEach((row) => {
+      const match = row.employee_code?.match(/PMMPL-(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNumber) maxNumber = num;
+      }
+    });
+
+    return `PMMPL-${String(maxNumber + 1).padStart(3, "0")}`;
   } catch (error) {
     console.error("Employee code error:", error);
     return "PMMPL-001";

@@ -46,7 +46,7 @@ const Indent = () => {
               "Completed",
               "completed",
               "COMPLETE",
-            ].includes(item.status)
+            ].includes(item.status),
         );
         setFilteredIndentData(filtered);
       } else {
@@ -81,7 +81,7 @@ const Indent = () => {
             "Completed",
             "completed",
             "COMPLETE",
-          ].includes(item.status)
+          ].includes(item.status),
       );
       setFilteredIndentData(filtered);
     }
@@ -255,7 +255,7 @@ const Indent = () => {
           await loadIndentsFromSupabase();
         } else {
           toast.error(
-            "Failed to create indent: " + (result.error || "Unknown error")
+            "Failed to create indent: " + (result.error || "Unknown error"),
           );
         }
       } catch (error) {
@@ -270,7 +270,7 @@ const Indent = () => {
       getCurrentTimestamp,
       formatDateForDatabase,
       loadIndentsFromSupabase,
-    ]
+    ],
   );
 
   // Handle cancel
@@ -716,20 +716,20 @@ const Indent = () => {
                             !item.status || item.status === ""
                               ? "bg-gray-100 text-gray-800"
                               : item.status === "NeedMore"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : item.status === "Fulfilled"
-                              ? "bg-green-100 text-green-800"
-                              : item.status === "InProgress"
-                              ? "bg-blue-100 text-blue-800"
-                              : [
-                                  "Complete",
-                                  "complete",
-                                  "Completed",
-                                  "completed",
-                                  "COMPLETE",
-                                ].includes(item.status)
-                              ? "bg-purple-100 text-purple-800"
-                              : "bg-gray-100 text-gray-800"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : item.status === "Fulfilled"
+                                  ? "bg-green-100 text-green-800"
+                                  : item.status === "InProgress"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : [
+                                          "Complete",
+                                          "complete",
+                                          "Completed",
+                                          "completed",
+                                          "COMPLETE",
+                                        ].includes(item.status)
+                                      ? "bg-purple-100 text-purple-800"
+                                      : "bg-gray-100 text-gray-800"
                           }`}
                         >
                           {item.status || "Not Set"}

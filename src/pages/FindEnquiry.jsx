@@ -151,7 +151,7 @@ const FindEnquiry = () => {
       const enquiryCount = countEnquiriesForIndent(item.indent_number);
       if (enquiryCount >= item.enquiry_needed) {
         toast.error(
-          `Maximum enquiries (${item.enquiry_needed}) already filled for this indent.`
+          `Maximum enquiries (${item.enquiry_needed}) already filled for this indent.`,
         );
         return;
       }
@@ -204,7 +204,7 @@ const FindEnquiry = () => {
       const enquiryCount = countEnquiriesForIndent(selectedItem.indent_number);
       if (enquiryCount >= selectedItem.enquiry_needed) {
         toast.error(
-          `Cannot submit: Maximum enquiries (${selectedItem.enquiry_needed}) already filled.`
+          `Cannot submit: Maximum enquiries (${selectedItem.enquiry_needed}) already filled.`,
         );
         return;
       }
@@ -229,7 +229,7 @@ const FindEnquiry = () => {
         }`;
         const photoResult = await uploadFileToStorage(
           formData.candidatePhoto,
-          photoPath
+          photoPath,
         );
         if (photoResult.success) {
           photoUrl = photoResult.url;
@@ -248,7 +248,7 @@ const FindEnquiry = () => {
         }`;
         const resumeResult = await uploadFileToStorage(
           formData.candidateResume,
-          resumePath
+          resumePath,
         );
         if (resumeResult.success) {
           resumeUrl = resumeResult.url;
@@ -467,7 +467,7 @@ const FindEnquiry = () => {
                   ) : (
                     filteredPendingData.map((item) => {
                       const enquiryCount = countEnquiriesForIndent(
-                        item.indent_number
+                        item.indent_number,
                       );
                       const isMaxReached = enquiryCount >= item.enquiry_needed;
 
@@ -521,7 +521,7 @@ const FindEnquiry = () => {
                                 <span className="text-xs text-gray-500">
                                   (
                                   {Math.round(
-                                    (enquiryCount / item.enquiry_needed) * 100
+                                    (enquiryCount / item.enquiry_needed) * 100,
                                   )}
                                   %)
                                 </span>
@@ -538,7 +538,8 @@ const FindEnquiry = () => {
                                   style={{
                                     width: `${Math.min(
                                       100,
-                                      (enquiryCount / item.enquiry_needed) * 100
+                                      (enquiryCount / item.enquiry_needed) *
+                                        100,
                                     )}%`,
                                   }}
                                 ></div>
@@ -548,7 +549,7 @@ const FindEnquiry = () => {
                           <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                             {item.completion_date
                               ? new Date(
-                                  item.completion_date
+                                  item.completion_date,
                                 ).toLocaleDateString()
                               : "-"}
                           </td>
@@ -729,7 +730,7 @@ const FindEnquiry = () => {
                         {Math.round(
                           (countEnquiriesForIndent(selectedItem.indent_number) /
                             selectedItem.no_of_post) *
-                            100
+                            100,
                         )}
                         %)
                       </span>
@@ -745,7 +746,7 @@ const FindEnquiry = () => {
                           100,
                           (countEnquiriesForIndent(selectedItem.indent_number) /
                             selectedItem.no_of_post) *
-                            100
+                            100,
                         )}%`,
                       }}
                     ></div>
@@ -781,24 +782,22 @@ const FindEnquiry = () => {
                     Applying For Post
                   </label>
                   <input
-  type="text"
-  value={selectedItem.post}
-  disabled
-  className="w-full px-3 py-2 text-gray-500 bg-gray-100 border border-gray-300 rounded-md cursor-not-allowed"
-/>
-
+                    type="text"
+                    value={selectedItem.post}
+                    disabled
+                    className="w-full px-3 py-2 text-gray-500 bg-gray-100 border border-gray-300 rounded-md cursor-not-allowed"
+                  />
                 </div>
                 <div>
                   <label className="block mb-1 text-sm font-medium text-gray-500">
                     Department
                   </label>
                   <input
-  type="text"
-  value={formData.department}
-  disabled
-  className="w-full px-3 py-2 text-gray-500 bg-gray-100 border border-gray-300 rounded-md cursor-not-allowed"
-/>
-
+                    type="text"
+                    value={formData.department}
+                    disabled
+                    className="w-full px-3 py-2 text-gray-500 bg-gray-100 border border-gray-300 rounded-md cursor-not-allowed"
+                  />
                 </div>
                 <div>
                   <label className="block mb-1 text-sm font-medium text-gray-500">

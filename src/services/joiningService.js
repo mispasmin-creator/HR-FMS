@@ -31,6 +31,10 @@ export const fetchJoiningHistory = async () => {
 /**
  * Create a new joining record
  */
+/**
+ * Create a new joining record
+ * Handles trigger-based validation errors from prevent_over_joining trigger
+ */
 export const createJoiningRecord = async (joiningData) => {
   try {
     const { data, error } = await supabase
@@ -38,11 +42,55 @@ export const createJoiningRecord = async (joiningData) => {
       .insert([joiningData])
       .select();
 
-    if (error) throw error;
+    if (error) {
+      // Handle trigger error: "Joining limit reached for indent..."
+      if (error.message && error.message.includes("Joining limit reached")) {
+        // Extract the details from error message
+        // Error format: "Joining limit reached for indent %, allowed: %, joined: %"
+        const match = error.message.match(
+          /Joining limit reached for indent (\S+), allowed: (\d+), joined: (\d+)/,
+        );
+        if (match) {
+          const [, indentNo, allowed, joined] = match;
+          const userMessage = `Cannot add joining. The required number of candidates (${allowed}) have already joined for indent ${indentNo}. Current joined count: ${joined}`;
+          return {
+            success: false,
+            error: userMessage,
+            errorType: "JOINING_LIMIT_REACHED",
+            details: { indentNo, allowed, joined },
+          };
+        } else {
+          // Fallback if message format is different
+          return {
+            success: false,
+            error:
+              "Joining limit reached for this indent. No more candidates can join this position.",
+            errorType: "JOINING_LIMIT_REACHED",
+          };
+        }
+      }
+
+      // Handle other trigger errors
+      if (error.message && error.message.includes("Invalid enquiry")) {
+        return {
+          success: false,
+          error:
+            "Invalid enquiry information. Please check the candidate details.",
+          errorType: "INVALID_ENQUIRY",
+        };
+      }
+
+      throw error;
+    }
+
     return { success: true, data: data?.[0] };
   } catch (error) {
     console.error("Error creating joining record:", error);
-    return { success: false, error: error.message };
+    return {
+      success: false,
+      error: error.message || "Failed to create joining record",
+      errorType: "UNKNOWN_ERROR",
+    };
   }
 };
 
