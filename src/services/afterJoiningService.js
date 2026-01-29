@@ -237,7 +237,7 @@ export const fetchDepartments = async () => {
 export const fetchDesignations = async () => {
   try {
     const { data, error } = await supabase
-      .from("joining")
+      .from("master_2")
       .select("designation")
       .not("designation", "is", null)
       .neq("designation", "");
@@ -246,9 +246,10 @@ export const fetchDesignations = async () => {
 
     return {
       success: true,
-      data: [...new Set(data.map((r) => r.designation))],
+      data: [...new Set(data.map((r) => r.designation))].sort(),
     };
-  } catch {
-    return { success: true, data: [] };
+  } catch (error) {
+    console.error("Error fetching designations from master_2:", error);
+    return { success: false, error: error.message };
   }
 };
