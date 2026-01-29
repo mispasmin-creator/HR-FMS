@@ -206,10 +206,13 @@ const Joining = () => {
         plannedDate: item.planned || "",
         actualJoiningDate: item.actual || "",
         designation: item.applying_for_post || "",
+        timestamp: item.created_at,
       }));
 
       // Process history data to match component expects
-      const processedHistoryData = historyResult.data.map((item) => ({
+      const processedHistoryData = historyResult.data
+        .filter((item) => !item.actual_leaving_date)
+        .map((item) => ({
         id: item.id,
         indentNo: item.enquiries?.indent_number || "",
         candidateEnquiryNo: item.enquiry_no || "",
@@ -235,6 +238,7 @@ const Joining = () => {
         incrementLetter: item.increment_letter,
         paySlip: item.pay_slip,
         resignationLetter: item.resignation_letter,
+        timestamp: item.created_at,
       }));
 
       setJoiningData(processedPendingData);
@@ -326,6 +330,55 @@ const Joining = () => {
       enquiryNo: item.candidateEnquiryNo?.trim() ? item.candidateEnquiryNo : "",
     });
     setShowJoiningModal(true);
+  };
+
+  const formatDateForDisplay = (dateString) => {
+    if (
+      !dateString ||
+      (typeof dateString === "string" && dateString.trim() === "")
+    ) {
+      return "-";
+    }
+
+    try {
+      // Check if already in dd/mm/yyyy format
+      if (typeof dateString === "string" && dateString.includes("/")) {
+        const parts = dateString.split("/");
+        if (parts.length === 3) {
+          const day = parseInt(parts[0], 10);
+          const month = parseInt(parts[1], 10);
+          const year = parseInt(parts[2], 10);
+          if (day > 0 && day <= 31 && month > 0 && month <= 12) {
+            return `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`;
+          }
+        }
+      }
+
+      // Parse as ISO date (Supabase format)
+      let date;
+      if (typeof dateString === "string") {
+        if (dateString.includes("-") && !dateString.includes("T")) {
+          const [year, month, day] = dateString.split("-");
+          date = new Date(year, parseInt(month) - 1, day);
+        } else {
+          date = new Date(dateString);
+        }
+      } else {
+        date = new Date(dateString);
+      }
+
+      if (!isNaN(date.getTime())) {
+        const day = String(date.getDate()).padStart(2, "0");
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
+      }
+
+      return "-";
+    } catch (error) {
+      console.error("Error formatting date:", dateString, error);
+      return "-";
+    }
   };
 
   const formatDate = (dateString) => {
@@ -695,6 +748,9 @@ const Joining = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      Timestamp
+                    </th>
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Action
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
@@ -732,7 +788,7 @@ const Joining = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {tableLoading ? (
                     <tr>
-                      <td colSpan="11" className="px-6 py-12 text-center">
+                      <td colSpan="12" className="px-6 py-12 text-center">
                         <div className="flex flex-col items-center justify-center">
                           <div className="w-6 h-6 mb-2 border-4 border-indigo-500 border-dashed rounded-full animate-spin"></div>
                           <span className="text-sm text-gray-600">
@@ -743,7 +799,7 @@ const Joining = () => {
                     </tr>
                   ) : error ? (
                     <tr>
-                      <td colSpan="11" className="px-6 py-12 text-center">
+                      <td colSpan="12" className="px-6 py-12 text-center">
                         <p className="text-red-500">Error: {error}</p>
                         <button
                           onClick={fetchJoiningData}
@@ -755,7 +811,7 @@ const Joining = () => {
                     </tr>
                   ) : filteredJoiningData.length === 0 ? (
                     <tr>
-                      <td colSpan="11" className="px-6 py-12 text-center">
+                      <td colSpan="12" className="px-6 py-12 text-center">
                         <p className="text-gray-500">
                           No pending joinings found.
                         </p>
@@ -764,22 +820,16 @@ const Joining = () => {
                   ) : (
                     filteredJoiningData.map((item) => (
                       <tr key={item.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {formatDateForDisplay(item.timestamp)}
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => handleJoiningClick(item)}
-                              className="px-3 py-1 text-sm text-white bg-green-600 rounded-md hover:bg-opacity-90"
-                            >
-                              Joining
-                            </button>
-                            {/* <button
-                              onClick={() => handleShareClick(item)}
-                              className="flex items-center px-3 py-1 text-sm text-white bg-blue-600 rounded-md hover:bg-opacity-90"
-                            >
-                              <Share size={14} className="mr-1" />
-                              Share
-                            </button> */}
-                          </div>
+                          <button
+                            onClick={() => handleJoiningClick(item)}
+                            className="px-3 py-1 text-sm text-white bg-green-600 rounded-md hover:bg-opacity-90"
+                          >
+                            Joining
+                          </button>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.indentNo || "-"}
@@ -849,6 +899,9 @@ const Joining = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      Timestamp
+                    </th>
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Candidate Enquiry No.
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
@@ -861,16 +914,10 @@ const Joining = () => {
                       Applying For Post
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Phone
+                      Contact Info
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Email
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Previous Company Name
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Address
+                      Previous Company Details
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Offer Letter
@@ -892,7 +939,7 @@ const Joining = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {tableLoading ? (
                     <tr>
-                      <td colSpan="13" className="px-6 py-12 text-center">
+                      <td colSpan="12" className="px-6 py-12 text-center">
                         <div className="flex flex-col items-center justify-center">
                           <div className="w-6 h-6 mb-2 border-4 border-indigo-500 border-dashed rounded-full animate-spin"></div>
                           <span className="text-sm text-gray-600">
@@ -903,7 +950,7 @@ const Joining = () => {
                     </tr>
                   ) : error ? (
                     <tr>
-                      <td colSpan="13" className="px-6 py-12 text-center">
+                      <td colSpan="12" className="px-6 py-12 text-center">
                         <p className="text-red-500">Error: {error}</p>
                         <button
                           onClick={fetchJoiningData}
@@ -915,7 +962,7 @@ const Joining = () => {
                     </tr>
                   ) : filteredHistoryData.length === 0 ? (
                     <tr>
-                      <td colSpan="13" className="px-6 py-12 text-center">
+                      <td colSpan="12" className="px-6 py-12 text-center">
                         <p className="text-gray-500">
                           No history records found.
                         </p>
@@ -924,6 +971,9 @@ const Joining = () => {
                   ) : (
                     filteredHistoryData.map((item) => (
                       <tr key={item.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {formatDateForDisplay(item.timestamp)}
+                        </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.candidateEnquiryNo || "-"}
                         </td>
@@ -937,16 +987,18 @@ const Joining = () => {
                           {item.applyingForPost || "-"}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                          {item.candidatePhone || "-"}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                          {item.candidateEmail || "-"}
+                          <div>{item.candidatePhone || "-"}</div>
+                          <div className="text-xs text-gray-500">
+                            {item.candidateEmail}
+                          </div>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.previousCompanyName || "-"}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                          {item.previousCompanyAddress || "-"}
+                          {item.previousCompanyAddress && (
+                            <div className="text-xs text-gray-500">
+                              {item.previousCompanyAddress}
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.offerLetter ? (

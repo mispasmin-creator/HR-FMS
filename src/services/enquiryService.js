@@ -6,7 +6,7 @@ export const fetchPendingIndents = async () => {
     const { data, error } = await supabase
       .from("indents")
       .select("*")
-      .eq("status", "pending")
+      .in("status", ["pending", "Draft"])
       .order("created_at", { ascending: false });
 
     if (error) throw error;

@@ -41,6 +41,7 @@ import { fetchSiesEmployees } from "../services/siesEmployeeService";
 import { fetchPendingJoiningCandidates } from "../services/joiningService";
 import { fetchPendingEnquiries } from "../services/callTrackerService";
 import { fetchLeavingData } from "../services/leavingService";
+import { fetchAllEnquiries } from "../services/enquiryService";
 
 const Sidebar = ({ onClose }) => {
   const navigate = useNavigate();
@@ -142,34 +143,46 @@ const Sidebar = ({ onClose }) => {
   useEffect(() => {
     const fetchPendingFindEnquiryCount = async () => {
       try {
-        const result = await fetchAllIndents();
+        const [indentResult, enquiryResult] = await Promise.all([
+          fetchAllIndents(),
+          fetchAllEnquiries(),
+        ]);
 
-        if (result.success && result.data) {
+        if (indentResult.success && indentResult.data && enquiryResult.success) {
+          const enquiries = enquiryResult.data || [];
+          const enquiryCounts = {};
+          enquiries.forEach((enq) => {
+            const indentNo = enq.indent_number;
+            enquiryCounts[indentNo] = (enquiryCounts[indentNo] || 0) + 1;
+          });
+
           let count = 0;
+          indentResult.data.forEach((item) => {
+            const status = (item.status || "").toString().trim().toLowerCase();
 
-          result.data.forEach((item) => {
-            const status = (item.status || "").toString().trim();
-            const planned2 = (item.planned_2 || "").toString().trim();
-            const actual2 = (item.actual_2 || "").toString().trim();
+            // Match logic from FindEnquiry.jsx
+            const hasSocialSitePost =
+              item.social_site_post &&
+              item.social_site_post.trim() !== "" &&
+              item.social_site_post.toLowerCase() !== "no";
 
-            // Match the logic: Status='Pending', has Planned 2, no Actual 2
-            const isValidStatus = status.toLowerCase() === "pending";
-            const hasPlanned2 = planned2 !== "";
-            const noActual2 = actual2 === "";
+            const enquiryCount = enquiryCounts[item.indent_number] || 0;
+            const isNotMaxed = enquiryCount < (item.enquiry_needed || 0);
 
-            if (isValidStatus && hasPlanned2 && noActual2) {
+            if (
+              (status === "pending" || status === "draft") &&
+              hasSocialSitePost &&
+              isNotMaxed
+            ) {
               count++;
             }
           });
 
-          console.log("Total pending find enquiry count (Supabase):", count);
+          console.log("Total pending find enquiry count synchronized:", count);
           setPendingFindEnquiryCount(count);
         }
       } catch (error) {
-        console.error(
-          "Error fetching pending find enquiry count from Supabase:",
-          error,
-        );
+        console.error("Error fetching pending find enquiry count:", error);
         setPendingFindEnquiryCount(0);
       }
     };

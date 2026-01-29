@@ -170,7 +170,7 @@ export const submitLeavingRequest = async (selectedItem, formData) => {
       .from("joining")
       .update({
         actual_leaving_date: formData.dateOfLeaving,
-        planned_after_leaving_approval_date: now, // Initialize the clearance process
+        // planned_after_leaving_approval_date: now, // Initialize the clearance process
       })
       .eq("serial_no", selectedItem.employeeNo);
 

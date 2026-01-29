@@ -40,10 +40,7 @@ export const fetchAfterLeavingProcessData = async () => {
       assignAssets: item.laptop || item.mobile || item.asset1_name || "", // Simplified legacy field
 
       // Approval System
-      approvalPlanned:
-        item.planned_after_leaving_approval_date ||
-        item.actual_leaving_date ||
-        "",
+      approvalPlanned: item.planned_after_leaving_approval_date || "",
       approvalActual: item.actual_after_leaving_approval_date || "",
       approvalStatus: item.after_leaving_approval_status || "",
       approvalRemarks: item.after_leaving_approval_remarks || "",
@@ -158,5 +155,53 @@ export const fetchAfterLeavingMasterData = async () => {
   } catch (error) {
     console.error("Error fetching master data:", error);
     return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Fetch indent master data from master2 table
+ */
+export const fetchIndentMasterData = async () => {
+  try {
+    const { data, error } = await supabase
+      .from("master_2")
+      .select("*")
+      .order("id", { ascending: true });
+
+    if (error) throw error;
+
+    const designations = [
+      ...new Set(data.map((item) => item.designation).filter(Boolean)),
+    ];
+
+    const genders = [
+      ...new Set(data.map((item) => item.gender).filter(Boolean)),
+    ];
+
+    const paymentModes = [
+      ...new Set(data.map((item) => item.payment_mode).filter(Boolean)),
+    ];
+
+    const companies = [
+      ...new Set(data.map((item) => item.joining_company_name).filter(Boolean)),
+    ];
+
+    return {
+      success: true,
+      designations,
+      genders,
+      paymentModes,
+      companies,
+    };
+  } catch (error) {
+    console.error("Error fetching master data:", error);
+    return {
+      success: false,
+      error: error.message,
+      designations: [],
+      genders: [],
+      paymentModes: [],
+      companies: [],
+    };
   }
 };
