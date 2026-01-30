@@ -7,6 +7,10 @@ import {
   createIndent,
   generateNextIndentNumber,
 } from "../services/indentService";
+import {
+  fetchIndentMasterData,
+  fetchAfterLeavingMasterData,
+} from "../services/afterLeavingService";
 
 const Indent = () => {
   const [showModal, setShowModal] = useState(false);
@@ -27,30 +31,26 @@ const Indent = () => {
 
   const [indentData, setIndentData] = useState([]);
   const [postOptions, setPostOptions] = useState([]);
+  const [companyOptions, setCompanyOptions] = useState([]);
+  const [departmentOptions, setDepartmentOptions] = useState([]);
+  const [genderOptions, setGenderOptions] = useState([]);
   const [filteredIndentData, setFilteredIndentData] = useState([]);
   const [showCompleted, setShowCompleted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const dataFetchedRef = useRef(false);
 
-  // Fetch indents from Supabase
-  const loadIndentsFromSupabase = useCallback(async () => {
+  // Fetch indents and master data from Supabase
+  const loadInitialData = useCallback(async () => {
     try {
-      const result = await fetchAllIndents();
-      if (result.success) {
-        setIndentData(result.data);
-        // derive unique post options from existing indents
-        try {
-          const posts = Array.from(
-            new Set((result.data || []).map((i) => i.post).filter(Boolean)),
-          );
-          setPostOptions(posts);
-        } catch (e) {
-          console.error("Error deriving post options:", e);
-          setPostOptions([]);
-        }
+      setIsInitialLoad(true);
+
+      // Fetch Indents
+      const indentsResult = await fetchAllIndents();
+      if (indentsResult.success) {
+        setIndentData(indentsResult.data);
         // Initial filter - hide completed entries
-        const filtered = result.data.filter(
+        const filtered = indentsResult.data.filter(
           (item) =>
             ![
               "Complete",
@@ -62,12 +62,28 @@ const Indent = () => {
         );
         setFilteredIndentData(filtered);
       } else {
-        console.error("Error loading data:", result.error);
+        console.error("Error loading indents:", indentsResult.error);
         toast.error("Failed to load indent data");
       }
+
+      // Fetch Master Data for dropdowns
+      const [indentMaster, leavingMaster] = await Promise.all([
+        fetchIndentMasterData(),
+        fetchAfterLeavingMasterData(),
+      ]);
+
+      if (indentMaster.success) {
+        setPostOptions(indentMaster.designations || []);
+        setCompanyOptions(indentMaster.companies || []);
+        setGenderOptions(indentMaster.genders || []);
+      }
+
+      if (leavingMaster.success) {
+        setDepartmentOptions(leavingMaster.departments || []);
+      }
     } catch (error) {
-      console.error("Error in loadIndentsFromSupabase:", error);
-      toast.error("Error loading indent data");
+      console.error("Error in loadInitialData:", error);
+      toast.error("Error loading initial data");
     } finally {
       setIsInitialLoad(false);
       dataFetchedRef.current = true;
@@ -77,8 +93,8 @@ const Indent = () => {
   // Load data on component mount
   useEffect(() => {
     if (dataFetchedRef.current) return;
-    loadIndentsFromSupabase();
-  }, [loadIndentsFromSupabase]);
+    loadInitialData();
+  }, [loadInitialData]);
 
   // Update filtered data when showCompleted changes
   useEffect(() => {
@@ -274,7 +290,7 @@ const Indent = () => {
           setShowModal(false);
 
           // Refresh data
-          await loadIndentsFromSupabase();
+          await loadInitialData();
         } else {
           toast.error(
             "Failed to create indent: " + (result.error || "Unknown error"),
@@ -287,12 +303,7 @@ const Indent = () => {
         setSubmitting(false);
       }
     },
-    [
-      formData,
-      getCurrentTimestamp,
-      formatDateForDatabase,
-      loadIndentsFromSupabase,
-    ],
+    [formData, getCurrentTimestamp, formatDateForDatabase, loadInitialData],
   );
 
   // Handle cancel
@@ -444,12 +455,11 @@ const Indent = () => {
                   <option value="" disabled>
                     Select a company
                   </option>
-                  <option value="Pmmpl">Pmmpl</option>
-                  <option value="Purab">Purab</option>
-                  <option value="Rkl">Rkl</option>
-                  <option value="Refratech">Refratech</option>
-                  <option value="Refrasynth">Refrasynth</option>
-                  <option value="Pasmin Llp">Pasmin Llp</option>
+                  {companyOptions.map((company) => (
+                    <option key={company} value={company}>
+                      {company}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -465,9 +475,14 @@ const Indent = () => {
                   required
                 >
                   <option value="">Select Gender</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Any">Any</option>
+                  {genderOptions.map((gender) => (
+                    <option key={gender} value={gender}>
+                      {gender}
+                    </option>
+                  ))}
+                  {!genderOptions.includes("Any") && (
+                    <option value="Any">Any</option>
+                  )}
                 </select>
               </div>
 

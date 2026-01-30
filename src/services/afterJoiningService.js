@@ -102,11 +102,14 @@ export const fetchAfterJoiningData = async () => {
         bloodGroup: item.blood_group || "",
         identificationMarks: item.identification_marks || "",
         salaryAmount: item.salary || "",
+
+        // leaving status
+        leavingDate: item.actual_leaving_date || null,
       };
     });
 
     const pending = processedData.filter((r) => !r.actual);
-    const history = processedData.filter((r) => r.actual);
+    const history = processedData.filter((r) => r.actual && !r.leavingDate);
 
     return { success: true, pending, history };
   } catch (error) {
