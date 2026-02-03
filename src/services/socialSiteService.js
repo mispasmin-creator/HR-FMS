@@ -47,7 +47,7 @@ export const updateSocialSiteInfo = async (indentId, socialSiteData) => {
           socialSiteData.socialSiteTypes.length > 0
             ? socialSiteData.socialSiteTypes.join(", ")
             : "No",
-        job_description: socialSiteData.jobDescription,
+        job_description_image: socialSiteData.jobDescriptionImage || null,
         social_site_updated_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -58,6 +58,30 @@ export const updateSocialSiteInfo = async (indentId, socialSiteData) => {
     return { success: true, data: data?.[0] };
   } catch (error) {
     console.error("Error updating social site info:", error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Upload image to Supabase storage for social site job descriptions
+export const uploadSocialSiteImage = async (file, path) => {
+  try {
+    const { data, error } = await supabase.storage
+      .from("social-site-images")
+      .upload(path, file, {
+        cacheControl: "3600",
+        upsert: true,
+      });
+
+    if (error) throw error;
+
+    // Get public URL
+    const { data: publicData } = supabase.storage
+      .from("social-site-images")
+      .getPublicUrl(path);
+
+    return { success: true, url: publicData.publicUrl };
+  } catch (error) {
+    console.error("Error uploading social site image:", error);
     return { success: false, error: error.message };
   }
 };

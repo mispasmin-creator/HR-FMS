@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Search, Clock, CheckCircle, X, AlertCircle } from "lucide-react";
+import { Search, Clock, CheckCircle, X, AlertCircle, Upload, Image as ImageIcon } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   fetchPendingIndentsForSocialSite,
   fetchSocialSiteHistory,
   updateSocialSiteInfo,
+  uploadSocialSiteImage,
 } from "../services/socialSiteService";
 
 // Format date helper
@@ -58,8 +59,11 @@ const SocialSite = () => {
   const [formData, setFormData] = useState({
     socialSite: "",
     socialSiteTypes: [],
-    jobDescription: "",
+    jobDescriptionImage: null,
   });
+
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
 
   // Social Site Types options
   const socialSiteOptions = [
@@ -118,8 +122,10 @@ const SocialSite = () => {
               .map((s) => s.trim())
               .filter((s) => s)
           : [],
-      jobDescription: item.job_description || "",
+      jobDescriptionImage: item.job_description_image || null,
     });
+    setImageFile(null);
+    setImagePreview(item.job_description_image || null);
     setShowModal(true);
   };
 
@@ -141,6 +147,41 @@ const SocialSite = () => {
     }));
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please select an image file');
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Image size should be less than 5MB');
+        return;
+      }
+
+      setImageFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    setFormData(prev => ({
+      ...prev,
+      jobDescriptionImage: null
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -150,7 +191,29 @@ const SocialSite = () => {
         throw new Error("Invalid indent selected");
       }
 
-      const result = await updateSocialSiteInfo(selectedItem.id, formData);
+      let imageUrl = formData.jobDescriptionImage;
+
+      // Upload image if a new file is selected
+      if (imageFile) {
+        const timestamp = Date.now();
+        const fileName = `${selectedItem.indent_number}_${timestamp}_${imageFile.name}`;
+        const filePath = `${selectedItem.indent_number}/${fileName}`;
+
+        const uploadResult = await uploadSocialSiteImage(imageFile, filePath);
+        
+        if (!uploadResult.success) {
+          throw new Error(uploadResult.error || "Failed to upload image");
+        }
+
+        imageUrl = uploadResult.url;
+      }
+
+      const updatedFormData = {
+        ...formData,
+        jobDescriptionImage: imageUrl
+      };
+
+      const result = await updateSocialSiteInfo(selectedItem.id, updatedFormData);
 
       if (!result.success) {
         throw new Error(
@@ -160,6 +223,8 @@ const SocialSite = () => {
 
       toast.success("Social Site information updated successfully");
       setShowModal(false);
+      setImageFile(null);
+      setImagePreview(null);
       await fetchAllData();
     } catch (error) {
       console.error("Submission error:", error);
@@ -393,7 +458,7 @@ const SocialSite = () => {
                       Which
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Job Description
+                      Job Description Image
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Last Updated
@@ -454,10 +519,16 @@ const SocialSite = () => {
                           {item.which || "-"}
                         </td>
                         <td className="max-w-xs px-6 py-4 text-sm text-gray-900 whitespace-normal">
-                          {item.job_description ? (
-                            <div className="overflow-y-auto max-h-20">
-                              {item.job_description}
-                            </div>
+                          {item.job_description_image ? (
+                            <a
+                              href={item.job_description_image}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-indigo-600 hover:text-indigo-800 flex items-center"
+                            >
+                              <ImageIcon size={16} className="mr-1" />
+                              View Image
+                            </a>
                           ) : (
                             <span className="text-gray-400">-</span>
                           )}
@@ -582,22 +653,64 @@ const SocialSite = () => {
                         </div>
                       </div>
 
-                      {/* Job Description Textarea */}
+                      {/* Job Description Image Upload */}
                       <div>
                         <label className="block mb-1 text-sm font-medium text-gray-700">
-                          Job Description
+                          Job Description Image
                         </label>
-                        <textarea
-                          name="jobDescription"
-                          value={formData.jobDescription}
-                          onChange={handleInputChange}
-                          placeholder="Enter job description details..."
-                          className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[100px] resize-y"
-                          rows={4}
-                        />
+                        
+                        {/* Image Preview */}
+                        {imagePreview && (
+                          <div className="relative mb-3">
+                            <img
+                              src={imagePreview}
+                              alt="Job Description"
+                              className="w-full max-h-64 object-contain border border-gray-300 rounded-md"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleRemoveImage}
+                              className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                        )}
+
+                        {/* File Upload Input */}
+                        <div className="flex items-center justify-center w-full">
+                          <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                              {imageFile ? (
+                                <>
+                                  <ImageIcon className="w-8 h-8 mb-2 text-green-500" />
+                                  <p className="text-sm text-gray-600">
+                                    {imageFile.name}
+                                  </p>
+                                </>
+                              ) : (
+                                <>
+                                  <Upload className="w-8 h-8 mb-2 text-gray-400" />
+                                  <p className="mb-2 text-sm text-gray-500">
+                                    <span className="font-semibold">Click to upload</span> or drag and drop
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    PNG, JPG, JPEG (MAX. 5MB)
+                                  </p>
+                                </>
+                              )}
+                            </div>
+                            <input
+                              type="file"
+                              className="hidden"
+                              accept="image/*"
+                              onChange={handleImageChange}
+                            />
+                          </label>
+                        </div>
+                        
                         <p className="mt-1 text-xs text-gray-500">
-                          Enter the job description details that were posted on
-                          social sites.
+                          Upload an image containing the job description details that were posted on social sites.
                         </p>
                       </div>
                     </>
