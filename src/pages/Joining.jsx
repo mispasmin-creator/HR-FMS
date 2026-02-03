@@ -1471,6 +1471,32 @@ const Joining = () => {
                     )}
                   </div>
                 </div>
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-gray-700">
+                    Candidate Photo
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileChange(e, "candidatePhoto")}
+                      className="hidden"
+                      id="candidate-photo-upload"
+                    />
+                    <label
+                      htmlFor="candidate-photo-upload"
+                      className="flex items-center px-4 py-2 text-gray-700 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50"
+                    >
+                      <Upload size={16} className="mr-2" />
+                      Upload Photo
+                    </label>
+                    {joiningFormData.candidatePhoto && (
+                      <span className="text-sm text-green-600">
+                        {joiningFormData.candidatePhoto.name}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Section 6: Previous Company Details */}

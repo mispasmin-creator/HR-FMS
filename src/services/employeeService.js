@@ -31,14 +31,17 @@ export const fetchJoiningEmployees = async () => {
   fatherName: item.father_name || "",
   dateOfJoining: item.date_of_joining || "",
   designation: item.designation || item.enquiries?.applying_for_post || "",
-
+  aadharPhoto: item.aadhar_front_photo || "",
+  candidatePhoto: item.candidate_photo || item.enquiries?.candidate_photo || "",
+  address: item.current_address || item.enquiries?.present_address || "",
+  dateOfBirth: item.dob_as_per_aadhar || "",
+  gender: item.gender || "",
   mobileNo: item.mobile_no || item.enquiries?.candidate_phone || "",
-  familyNo: item.family_mobile_no || "", // ✅ correct
-
-  accountNo: item.current_bank_account_no || "", // ✅ FIXED
-  ifsc: item.current_bank_ifsc || "",             // ✅ FIXED
+  familyNo: item.family_mobile_no || "",
+  relationshipWithFamily: item.relationship_with_family || "",
+  accountNo: item.current_bank_account_no || "",
+  ifsc: item.current_bank_ifsc || "",
   branch: item.branch_name || "",
-
   passbook: item.bank_passbook_photo || "",
   emailId: item.personal_email || "",
   department: item.department || item.enquiries?.department || "",
