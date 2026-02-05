@@ -454,6 +454,11 @@ const CallTracker = () => {
       setSubmitting(false);
       return;
     }
+    if ((formData.status === "Follow-up" ||  formData.status === "Interview" || formData.status === "Negotiation" ||  formData.status === "On Hold") && !formData.nextDate) {
+      toast.error("Select the Date");
+      setSubmitting(false);
+      return;
+    }
 
     try {
       const now = new Date();
@@ -592,55 +597,50 @@ const CallTracker = () => {
         <div className="border-b border-gray-300 border-opacity-20">
           <nav className="flex -mb-px">
             <button
-              className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                activeTab === "pending"
+              className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "pending"
                   ? "border-indigo-500 text-indigo-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
+                }`}
               onClick={() => setActiveTab("pending")}
             >
               <Clock size={16} className="inline mr-2" />
               Pending ({filteredPendingData.length})
             </button>
             <button
-              className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                activeTab === "followup"
+              className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "followup"
                   ? "border-green-500 text-green-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
+                }`}
               onClick={() => setActiveTab("followup")}
             >
               <RefreshCw size={16} className="inline mr-2" />
               Follow-up ({getFollowUpCount()})
             </button>
             <button
-              className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                activeTab === "interview"
+              className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "interview"
                   ? "border-blue-500 text-blue-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
+                }`}
               onClick={() => setActiveTab("interview")}
             >
               <Calendar size={16} className="inline mr-2" />
               Interview ({getInterviewCount()})
             </button>
             <button
-              className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                activeTab === "onhold"
+              className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "onhold"
                   ? "border-yellow-500 text-yellow-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
+                }`}
               onClick={() => setActiveTab("onhold")}
             >
               <PauseCircle size={16} className="inline mr-2" />
               On Hold ({getOnHoldCount()})
             </button>
             <button
-              className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                activeTab === "history"
+              className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "history"
                   ? "border-purple-500 text-purple-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
+                }`}
               onClick={() => setActiveTab("history")}
             >
               <CheckCircle size={16} className="inline mr-2" />
@@ -1209,15 +1209,14 @@ const CallTracker = () => {
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           <span
-                            className={`px-2 py-1 text-xs rounded-full ${
-                              item.status === "Joining"
+                            className={`px-2 py-1 text-xs rounded-full ${item.status === "Joining"
                                 ? "bg-green-100 text-green-800"
                                 : item.status === "Reject"
                                   ? "bg-red-100 text-red-800"
                                   : item.status === "Negotiation"
                                     ? "bg-purple-100 text-purple-800"
                                     : "bg-gray-100 text-gray-800"
-                            }`}
+                              }`}
                           >
                             {item.status}
                           </span>
@@ -1355,9 +1354,8 @@ const CallTracker = () => {
                 </button>
                 <button
                   type="submit"
-                  className={`px-4 py-2 text-white bg-indigo-700 rounded-md hover:bg-indigo-800 min-h-[42px] flex items-center justify-center ${
-                    submitting ? "opacity-90 cursor-not-allowed" : ""
-                  }`}
+                  className={`px-4 py-2 text-white bg-indigo-700 rounded-md hover:bg-indigo-800 min-h-[42px] flex items-center justify-center ${submitting ? "opacity-90 cursor-not-allowed" : ""
+                    }`}
                   disabled={submitting}
                 >
                   {submitting ? (

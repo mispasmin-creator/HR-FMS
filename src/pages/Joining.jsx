@@ -213,33 +213,33 @@ const Joining = () => {
       const processedHistoryData = historyResult.data
         .filter((item) => !item.actual_leaving_date)
         .map((item) => ({
-        id: item.id,
-        indentNo: item.enquiries?.indent_number || "",
-        candidateEnquiryNo: item.enquiry_no || "",
-        applyingForPost: item.enquiries?.applying_for_post || "",
-        department: item.department || item.enquiries?.department || "",
-        candidateName:
-          item.name_as_per_aadhar || item.enquiries?.candidate_name || "",
-        candidatePhone: item.mobile_no || item.enquiries?.candidate_phone || "",
-        candidateEmail:
-          item.personal_email || item.enquiries?.candidate_email || "",
-        aadharNo: item.aadhar_card_no || item.enquiries?.aadhar_no || "",
-        presentAddress:
-          item.current_address || item.enquiries?.present_address || "",
-        candidatePhoto:
-          item.candidate_photo || item.enquiries?.candidate_photo || "",
-        candidateResume: item.enquiries?.candidate_resume || "",
-        dateOfJoining: item.date_of_joining,
-        designation: item.designation,
-        serialNo: item.serial_no,
-        previousCompanyName: item.previous_company_name,
-        previousCompanyAddress: item.previous_company_address,
-        offerLetter: item.offer_letter,
-        incrementLetter: item.increment_letter,
-        paySlip: item.pay_slip,
-        resignationLetter: item.resignation_letter,
-        timestamp: item.created_at,
-      }));
+          id: item.id,
+          indentNo: item.enquiries?.indent_number || "",
+          candidateEnquiryNo: item.enquiry_no || "",
+          applyingForPost: item.enquiries?.applying_for_post || "",
+          department: item.department || item.enquiries?.department || "",
+          candidateName:
+            item.name_as_per_aadhar || item.enquiries?.candidate_name || "",
+          candidatePhone: item.mobile_no || item.enquiries?.candidate_phone || "",
+          candidateEmail:
+            item.personal_email || item.enquiries?.candidate_email || "",
+          aadharNo: item.aadhar_card_no || item.enquiries?.aadhar_no || "",
+          presentAddress:
+            item.current_address || item.enquiries?.present_address || "",
+          candidatePhoto:
+            item.candidate_photo || item.enquiries?.candidate_photo || "",
+          candidateResume: item.enquiries?.candidate_resume || "",
+          dateOfJoining: item.date_of_joining,
+          designation: item.designation,
+          serialNo: item.serial_no,
+          previousCompanyName: item.previous_company_name,
+          previousCompanyAddress: item.previous_company_address,
+          offerLetter: item.offer_letter,
+          incrementLetter: item.increment_letter,
+          paySlip: item.pay_slip,
+          resignationLetter: item.resignation_letter,
+          timestamp: item.created_at,
+        }));
 
       setJoiningData(processedPendingData);
       setHistoryData(processedHistoryData);
@@ -541,6 +541,18 @@ const Joining = () => {
     if (!validateForm()) {
       return;
     }
+
+    // ✅ Mandatory Date of Joining
+    if (!joiningFormData.dateOfJoining) {
+      toast.error("Date of Joining is mandatory");
+      return;
+    }
+
+    // ✅ Mandatory Family Mobile Number
+    if (!joiningFormData.familyMobileNo) {
+      toast.error("Family Mobile Number is mandatory");
+      return;
+    }
     setSubmitting(true);
 
     try {
@@ -716,22 +728,20 @@ const Joining = () => {
         <div className="border-b border-gray-300 border-opacity-20">
           <nav className="flex -mb-px">
             <button
-              className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                activeTab === "pending"
+              className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "pending"
                   ? "border-indigo-500 text-indigo-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
+                }`}
               onClick={() => setActiveTab("pending")}
             >
               <Clock size={16} className="inline mr-2" />
               Pending Joinings ({filteredJoiningData.length})
             </button>
             <button
-              className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                activeTab === "history"
+              className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "history"
                   ? "border-indigo-500 text-indigo-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
+                }`}
               onClick={() => setActiveTab("history")}
             >
               <CheckCircle size={16} className="inline mr-2" />
@@ -1199,7 +1209,7 @@ const Joining = () => {
                 </div>
                 <div>
                   <label className="block mb-1 text-sm font-medium text-gray-700">
-                    Family Mobile Number
+                    Family Mobile Number *
                   </label>
                   <input
                     type="tel"
@@ -1316,7 +1326,7 @@ const Joining = () => {
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <div>
                   <label className="block mb-1 text-sm font-medium text-gray-700">
-                    Date Of Joining
+                    Date Of Joining *
                   </label>
                   <input
                     type="date"
@@ -1661,9 +1671,8 @@ const Joining = () => {
                 </button>
                 <button
                   type="submit"
-                  className={`px-4 py-2 text-white bg-indigo-700 rounded-md hover:bg-indigo-800 flex items-center justify-center min-h-[42px] ${
-                    submitting ? "opacity-90 cursor-not-allowed" : ""
-                  }`}
+                  className={`px-4 py-2 text-white bg-indigo-700 rounded-md hover:bg-indigo-800 flex items-center justify-center min-h-[42px] ${submitting ? "opacity-90 cursor-not-allowed" : ""
+                    }`}
                   disabled={submitting}
                 >
                   {submitting ? (
@@ -1779,9 +1788,8 @@ const Joining = () => {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className={`px-4 py-2 text-white bg-indigo-700 rounded-md hover:bg-indigo-800 ${
-                    submitting ? "opacity-90 cursor-not-allowed" : ""
-                  }`}
+                  className={`px-4 py-2 text-white bg-indigo-700 rounded-md hover:bg-indigo-800 ${submitting ? "opacity-90 cursor-not-allowed" : ""
+                    }`}
                 >
                   {submitting ? "Sending..." : "Send"}
                 </button>

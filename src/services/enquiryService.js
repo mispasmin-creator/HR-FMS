@@ -219,3 +219,20 @@ export const fetchEnquiriesWithCompletedIndents = async () => {
     return { success: false, error: error.message };
   }
 };
+export const markEnquiryAsDone = async (item) => {
+  try {
+    // ✅ Update indent status to Completed
+    const { error: indentError } = await supabase
+      .from("indents")
+      .update({ status: "Completed" })
+      .eq("indent_number", item.indent_number);
+
+    if (indentError) throw indentError;
+
+    return { success: true };
+
+  } catch (error) {
+    console.error("Error marking enquiry as done:", error);
+    return { success: false, error: error.message };
+  }
+};

@@ -103,7 +103,8 @@ export const fetchPendingJoiningCandidates = async () => {
     const { data: enquiries, error: enquiryError } = await supabase
       .from("enquiries")
       .select("*")
-      .eq("track_status", "Joining");
+      .eq("track_status", "Joining")
+      .order("created_at", { ascending: false }); 
 
     if (enquiryError) throw enquiryError;
 

@@ -23,7 +23,7 @@ const AfterJoiningWork = () => {
   const [reportingOfficers, setReportingOfficers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [designations, setDesignations] = useState([]);
-  const companyOptions = ["PMMPL", "PURAB", "REFRATECH", "REFRASYNTH"];
+  const companyOptions = ["PMMPL", "PURAB", "REFRATECH", "REFRASYNTH", "RKL"];
   const [loading, setLoading] = useState(false);
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   // Add this after your searchTerm state

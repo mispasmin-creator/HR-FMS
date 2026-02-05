@@ -10,6 +10,7 @@ import {
   generateNextAAPNumber,
   uploadFileToStorage,
   getEnquiriesForIndent,
+  markEnquiryAsDone 
 } from "../services/enquiryService";
 
 const FindEnquiry = () => {
@@ -59,8 +60,8 @@ const FindEnquiry = () => {
 
   // Format date for display
   const formatDateForDisplay = (dateString) => {
-    const parsed = parseDDMMYYYY(dateString);
-    return parsed || "-";
+    if (!dateString) return "-";
+    return new Date(dateString).toLocaleDateString("en-GB");
   };
 
   // Fetch all data from Supabase
@@ -210,7 +211,7 @@ const FindEnquiry = () => {
       }
     }
 
-    if (!formData.candidateName || !formData.candidatePhone) {
+    if (!formData.candidateName || !formData.candidatePhone || !formData.interviewDate) {
       toast.error("Please fill all required fields");
       return;
     }
@@ -224,9 +225,8 @@ const FindEnquiry = () => {
       // Upload photo if exists
       if (formData.candidatePhoto) {
         setUploadingPhoto(true);
-        const photoPath = `${generatedCandidateNo}/photo_${Date.now()}_${
-          formData.candidatePhoto.name
-        }`;
+        const photoPath = `${generatedCandidateNo}/photo_${Date.now()}_${formData.candidatePhoto.name
+          }`;
         const photoResult = await uploadFileToStorage(
           formData.candidatePhoto,
           photoPath,
@@ -243,9 +243,8 @@ const FindEnquiry = () => {
       // Upload resume if exists
       if (formData.candidateResume) {
         setUploadingResume(true);
-        const resumePath = `${generatedCandidateNo}/resume_${Date.now()}_${
-          formData.candidateResume.name
-        }`;
+        const resumePath = `${generatedCandidateNo}/resume_${Date.now()}_${formData.candidateResume.name
+          }`;
         const resumeResult = await uploadFileToStorage(
           formData.candidateResume,
           resumePath,
@@ -342,8 +341,9 @@ const FindEnquiry = () => {
     // Check if enquiries are not yet maxed out
     const enquiryCount = countEnquiriesForIndent(item.indent_number);
     const isNotMaxed = enquiryCount < item.enquiry_needed;
+    const isCompleted = item.is_completed === true;
 
-    return matchesSearch && hasSocialSitePost && isNotMaxed;
+    return matchesSearch && hasSocialSitePost && isNotMaxed && !isCompleted;
   });
 
   const filteredHistoryData = historyData.filter((item) => {
@@ -353,8 +353,23 @@ const FindEnquiry = () => {
         ?.toLowerCase()
         .includes(searchTerm.toLowerCase()) ||
       item.indent_number?.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
+    return matchesSearch && (item.is_completed === true || item.is_completed === null);
   });
+
+  const handleMarkDone = async (item) => {
+    try {
+      const result = await markEnquiryAsDone(item);
+
+      if (!result.success) throw new Error(result.error);
+
+      toast.success("Enquiry marked Done & Indent Completed");
+      fetchAllData();
+
+    } catch (err) {
+      toast.error("Failed to update enquiry");
+    }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -386,22 +401,20 @@ const FindEnquiry = () => {
         <div className="border-b border-gray-300 border-opacity-20">
           <nav className="flex -mb-px">
             <button
-              className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                activeTab === "pending"
-                  ? "border-indigo-500 text-indigo-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
+              className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "pending"
+                ? "border-indigo-500 text-indigo-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
               onClick={() => setActiveTab("pending")}
             >
               <Clock size={16} className="inline mr-2" />
               Pending ({filteredPendingData.length})
             </button>
             <button
-              className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                activeTab === "history"
-                  ? "border-indigo-500 text-indigo-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
+              className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "history"
+                ? "border-indigo-500 text-indigo-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
               onClick={() => setActiveTab("history")}
             >
               <CheckCircle size={16} className="inline mr-2" />
@@ -474,22 +487,29 @@ const FindEnquiry = () => {
                       return (
                         <tr key={item.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <button
-                              onClick={() => handleEnquiryClick(item)}
-                              disabled={isMaxReached}
-                              className={`px-3 py-1 text-white rounded-md text-sm ${
-                                isMaxReached
+                            <div className="flex gap-2">
+
+                              {/* Enquiry Button */}
+                              <button
+                                onClick={() => handleEnquiryClick(item)}
+                                disabled={isMaxReached}
+                                className={`px-3 py-1 text-white rounded-md text-sm ${isMaxReached
                                   ? "bg-gray-400 cursor-not-allowed"
                                   : "bg-indigo-700 hover:bg-opacity-90"
-                              }`}
-                              title={
-                                isMaxReached
-                                  ? `Maximum (${item.enquiry_needed}) enquiries already filled`
-                                  : ""
-                              }
-                            >
-                              {isMaxReached ? "Max Reached" : "Enquiry"}
-                            </button>
+                                  }`}
+                              >
+                                {isMaxReached ? "Max Reached" : "Enquiry"}
+                              </button>
+
+                              {/* ✅ Mark Done Button */}
+                              <button
+                                onClick={() => handleMarkDone(item)}
+                                className="px-3 py-1 text-white bg-red-500 rounded-md text-sm hover:bg-red-600"
+                              >
+                                Done
+                              </button>
+
+                            </div>
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                             {item.indent_number}
@@ -509,11 +529,10 @@ const FindEnquiry = () => {
                           <td className="px-6 py-4 text-sm whitespace-nowrap">
                             <div className="flex items-center space-x-2">
                               <span
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                  enquiryCount >= item.enquiry_needed
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-yellow-100 text-yellow-800"
-                                }`}
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${enquiryCount >= item.enquiry_needed
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-yellow-100 text-yellow-800"
+                                  }`}
                               >
                                 {enquiryCount}/{item.enquiry_needed}
                               </span>
@@ -530,16 +549,15 @@ const FindEnquiry = () => {
                             {enquiryCount > 0 && (
                               <div className="mt-1 w-full bg-gray-200 rounded-full h-1.5">
                                 <div
-                                  className={`h-1.5 rounded-full ${
-                                    enquiryCount >= item.enquiry_needed
-                                      ? "bg-green-500"
-                                      : "bg-yellow-500"
-                                  }`}
+                                  className={`h-1.5 rounded-full ${enquiryCount >= item.enquiry_needed
+                                    ? "bg-green-500"
+                                    : "bg-yellow-500"
+                                    }`}
                                   style={{
                                     width: `${Math.min(
                                       100,
                                       (enquiryCount / item.enquiry_needed) *
-                                        100,
+                                      100,
                                     )}%`,
                                   }}
                                 ></div>
@@ -549,13 +567,13 @@ const FindEnquiry = () => {
                           <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                             {item.completion_date
                               ? new Date(
-                                  item.completion_date,
-                                ).toLocaleDateString()
+                                item.completion_date,
+                              ).toLocaleDateString()
                               : "-"}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                            {item.planned_date
-                              ? formatDateForDisplay(item.planned_date)
+                            {item.planned_2
+                              ? formatDateForDisplay(item.planned_2)
                               : "-"}
                           </td>
                         </tr>
@@ -730,7 +748,7 @@ const FindEnquiry = () => {
                         {Math.round(
                           (countEnquiriesForIndent(selectedItem.indent_number) /
                             selectedItem.no_of_post) *
-                            100,
+                          100,
                         )}
                         %)
                       </span>
@@ -746,7 +764,7 @@ const FindEnquiry = () => {
                           100,
                           (countEnquiriesForIndent(selectedItem.indent_number) /
                             selectedItem.no_of_post) *
-                            100,
+                          100,
                         )}%`,
                       }}
                     ></div>
@@ -1009,7 +1027,7 @@ const FindEnquiry = () => {
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                   <label className="block mb-1 text-sm font-medium text-gray-500">
-                    Interview Date
+                    Interview Date *
                   </label>
                   <input
                     type="date"
@@ -1017,6 +1035,7 @@ const FindEnquiry = () => {
                     value={formData.interviewDate}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 text-gray-500 bg-white border border-gray-300 rounded-md border-opacity-30 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    required
                   />
                 </div>
               </div>

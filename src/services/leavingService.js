@@ -224,6 +224,7 @@ export const fetchLeavingHistory = async () => {
       designation: item.designation,
       department: item.department,
       reasonOfLeaving: item.reason_of_leaving,
+      paymentLink: item.payment_link,
     }));
 
     return { success: true, history };

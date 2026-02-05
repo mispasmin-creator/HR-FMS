@@ -71,7 +71,7 @@ export const fetchPendingLeaving = async () => {
         benefitRemoved: item.benefit_enrollment_removed,
 
         finalReleaseDate: item.final_release_date,
-
+        payment_link: item.payment_link,
         // Prefer joining bank account when available
         bank_account:
           joiningMap[item.employee_no] ||

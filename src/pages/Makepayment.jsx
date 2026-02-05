@@ -90,6 +90,7 @@ const MakePayment = () => {
       plannedDate: planned ? planned.toString() : "",
       actualDate: actual ? actual.toString() : "",
       formLink: item.form_link || item.formLink || "",
+      paymentLink: item.payment_link || "",
       paymentStatus: item.payment_status || item.paymentStatus || "Pending",
       paymentDate: item.payment_date || item.paymentDate || "",
       department: item.department || "",
@@ -205,42 +206,16 @@ const MakePayment = () => {
     }
   };
 
-  const handleIndividualPayment = async (item) => {
-    if (!item.id) {
-      showNotification("Invalid payment record", "error");
+  const handleIndividualPayment = (item, e) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+
+    if (!item.paymentLink) {
+      showNotification("Payment link not available", "error");
       return;
     }
 
-    try {
-      showNotification(`Processing payment for ${item.name}...`, "info");
-
-      const currentDate = new Date();
-      // Format date as MM/DD/YYYY HH:MM:SS
-      const formattedDate = `${(currentDate.getMonth() + 1).toString().padStart(2, "0")}/${currentDate.getDate().toString().padStart(2, "0")}/${currentDate.getFullYear()} ${currentDate.getHours().toString().padStart(2, "0")}:${currentDate.getMinutes().toString().padStart(2, "0")}:${currentDate.getSeconds().toString().padStart(2, "0")}`;
-
-      const result = await markPaymentById(item.id, formattedDate);
-
-      if (result.success) {
-        showNotification(`Payment recorded for ${item.name}`, "success");
-
-        // Remove the item from the list
-        const updatedData = paymentData.filter(
-          (payment) => payment.id !== item.id,
-        );
-        setPaymentData(updatedData);
-
-        // Clear selection for this item
-        setSelectedPayments((prev) => ({
-          ...prev,
-          [item.id]: false,
-        }));
-      } else {
-        throw new Error(result.error || "Failed to update payment record");
-      }
-    } catch (error) {
-      console.error("Individual payment error:", error);
-      showNotification(`Payment failed: ${error.message}`, "error");
-    }
+    window.open(item.paymentLink, "_blank", "noopener,noreferrer");
   };
 
   const downloadPaymentReceipt = (item) => {
@@ -391,13 +366,12 @@ Amount: ₹${(Number(item.amount) || 0).toLocaleString("en-IN")} only.
       {/* Notification */}
       {notification && (
         <div
-          className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 ${
-            notification.type === "error"
-              ? "bg-red-100 text-red-800 border border-red-300"
-              : notification.type === "info"
-                ? "bg-blue-100 text-blue-800 border border-blue-300"
-                : "bg-green-100 text-green-800 border border-green-300"
-          }`}
+          className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 ${notification.type === "error"
+            ? "bg-red-100 text-red-800 border border-red-300"
+            : notification.type === "info"
+              ? "bg-blue-100 text-blue-800 border border-blue-300"
+              : "bg-green-100 text-green-800 border border-green-300"
+            }`}
         >
           <div className="flex items-center">
             {notification.type === "error"
@@ -432,11 +406,10 @@ Amount: ₹${(Number(item.amount) || 0).toLocaleString("en-IN")} only.
               disabled={
                 Object.values(selectedPayments).filter(Boolean).length === 0
               }
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors shadow-md ${
-                Object.values(selectedPayments).filter(Boolean).length === 0
-                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  : "bg-green-600 text-white hover:bg-green-700"
-              }`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors shadow-md ${Object.values(selectedPayments).filter(Boolean).length === 0
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-green-600 text-white hover:bg-green-700"
+                }`}
             >
               <CreditCard size={18} />
               Mark Selected as Paid (
@@ -662,9 +635,8 @@ Amount: ₹${(Number(item.amount) || 0).toLocaleString("en-IN")} only.
                       filteredData.map((item) => (
                         <tr
                           key={item.id}
-                          className={`hover:bg-gray-50 transition-colors ${
-                            selectedPayments[item.id] ? "bg-blue-50" : ""
-                          }`}
+                          className={`hover:bg-gray-50 transition-colors ${selectedPayments[item.id] ? "bg-blue-50" : ""
+                            }`}
                         >
                           <td className="px-4 py-4 whitespace-nowrap">
                             <input
@@ -706,11 +678,10 @@ Amount: ₹${(Number(item.amount) || 0).toLocaleString("en-IN")} only.
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
                             <span
-                              className={`px-2 py-1 text-xs rounded-full font-medium ${
-                                item.paymentStatus === "Completed"
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-yellow-100 text-yellow-800"
-                              }`}
+                              className={`px-2 py-1 text-xs rounded-full font-medium ${item.paymentStatus === "Completed"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-yellow-100 text-yellow-800"
+                                }`}
                             >
                               {item.paymentStatus}
                             </span>
@@ -718,14 +689,19 @@ Amount: ₹${(Number(item.amount) || 0).toLocaleString("en-IN")} only.
                           <td className="px-4 py-4 text-sm text-gray-900 whitespace-nowrap">
                             <div className="flex flex-wrap gap-1">
                               <button
+                                type="button"
                                 onClick={() => handleIndividualPayment(item)}
-                                className="flex items-center gap-1 px-2 py-1 text-xs text-white transition-colors bg-green-600 rounded hover:bg-green-700"
-                                title="Mark as Paid"
+                                disabled={!item.paymentLink}
+                                className={`flex items-center gap-1 px-2 py-1 text-xs text-white rounded
+    ${item.paymentLink
+                                    ? "bg-green-600 hover:bg-green-700"
+                                    : "bg-gray-400 cursor-not-allowed"
+                                  }
+  `}
                               >
                                 <CreditCard size={12} />
                                 Paid
                               </button>
-
                               <button
                                 onClick={() => downloadPaymentReceipt(item)}
                                 className="flex items-center gap-1 px-2 py-1 text-xs text-white transition-colors bg-blue-600 rounded hover:bg-blue-700"
@@ -824,11 +800,10 @@ Amount: ₹${(Number(item.amount) || 0).toLocaleString("en-IN")} only.
                   disabled={
                     Object.values(selectedPayments).filter(Boolean).length === 0
                   }
-                  className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                    Object.values(selectedPayments).filter(Boolean).length === 0
-                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                      : "bg-green-600 text-white hover:bg-green-700 shadow-md"
-                  }`}
+                  className={`px-6 py-2 rounded-lg font-medium transition-colors ${Object.values(selectedPayments).filter(Boolean).length === 0
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : "bg-green-600 text-white hover:bg-green-700 shadow-md"
+                    }`}
                 >
                   Mark Selected as Paid (
                   {Object.values(selectedPayments).filter(Boolean).length})
