@@ -671,6 +671,9 @@ const Indent = () => {
                     Indent Number
                   </th>
                   <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                    Timestamp
+                  </th>
+                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                     Company
                   </th>
                   <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
@@ -736,6 +739,9 @@ const Indent = () => {
                     >
                       <td className="px-6 py-4 font-medium whitespace-nowrap">
                         {item.indent_number || "—"}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
+                        {formatDisplayDate(item.actual_1)}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
                         {item.company || "—"}

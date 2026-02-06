@@ -489,22 +489,20 @@ const AfterJoiningWork = () => {
         <div className="border-b border-gray-300 ">
           <nav className="flex -mb-px">
             <button
-              className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                activeTab === "pending"
+              className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "pending"
                   ? "border-indigo-500 text-indigo-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
+                }`}
               onClick={() => setActiveTab("pending")}
             >
               <Clock size={16} className="inline mr-2" />
               Pending ({filteredPendingData.length})
             </button>
             <button
-              className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                activeTab === "history"
+              className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "history"
                   ? "border-indigo-500 text-indigo-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
+                }`}
               onClick={() => setActiveTab("history")}
             >
               <CheckCircle size={16} className="inline mr-2" />
@@ -539,6 +537,9 @@ const AfterJoiningWork = () => {
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Department
+                    </th>
+                    <th className="px-4 py-2 text-xs font-semibold text-gray-600 uppercase">
+                      Company
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Planned Date
@@ -586,6 +587,9 @@ const AfterJoiningWork = () => {
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
                           {item.department || "N/A"}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
+                          {item.companyName || "N/A"}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
                           {formatDateForDisplay(item.plannedDate)}
@@ -647,6 +651,9 @@ const AfterJoiningWork = () => {
                     <th className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">
                       Designation
                     </th>
+                    <th className="px-4 py-2 text-xs font-semibold text-gray-600 uppercase">
+                      Company
+                    </th>
                     <th className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">
                       PF / ESIC
                     </th>
@@ -679,9 +686,6 @@ const AfterJoiningWork = () => {
                     </th>
                     <th className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">
                       Next Increment
-                    </th>
-                    <th className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">
-                      Company Name
                     </th>
                     <th className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">
                       Blood Group
@@ -781,6 +785,9 @@ const AfterJoiningWork = () => {
                           {item.designation}
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-700">
+                          {item.companyName}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-700">
                           {item.pfEsic || "-"}
                         </td>
 
@@ -849,9 +856,6 @@ const AfterJoiningWork = () => {
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-700">
                           {formatDateForDisplay(item.nextSalaryIncrementDate)}
-                        </td>
-                        <td className="px-4 py-2 text-sm text-gray-700">
-                          {item.companyName}
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-700">
                           {item.bloodGroup}
@@ -1879,9 +1883,8 @@ const AfterJoiningWork = () => {
                 </button>
                 <button
                   type="submit"
-                  className={`px-4 py-2 text-white bg-indigo-700 rounded-md hover:bg-indigo-800 min-h-[42px] flex items-center justify-center ${
-                    submitting ? "opacity-90 cursor-not-allowed" : ""
-                  }`}
+                  className={`px-4 py-2 text-white bg-indigo-700 rounded-md hover:bg-indigo-800 min-h-[42px] flex items-center justify-center ${submitting ? "opacity-90 cursor-not-allowed" : ""
+                    }`}
                   disabled={submitting}
                 >
                   {submitting ? (

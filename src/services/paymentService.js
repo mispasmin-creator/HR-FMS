@@ -6,43 +6,40 @@ import { supabase } from "../config/supabase";
  */
 export const fetchPendingLeaving = async () => {
   try {
+    // ✅ Fetch from VIEW instead of leaving table
     const { data, error } = await supabase
-      .from("leaving")
+      .from("leaving_with_company")
       .select("*")
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    console.log("Fetched leaving data:", data);
-    // Attach bank account from `joining` table when available
+
     const rows = data || [];
 
-    // collect candidate serials / employee numbers to lookup in joining
+    // ---- Bank account fallback from joining table ----
     const serials = [
       ...new Set(
         rows
-          .map((r) => r.employee_no || r.employee_code || r.serial_no)
+          .map((r) => r.employee_no)
           .filter(Boolean)
           .map(String),
       ),
     ];
 
     let joiningMap = {};
+
     if (serials.length > 0) {
-      // Only request the column that actually exists: current_bank_account_no
-      const { data: joiningData, error: joinErr } = await supabase
+      const { data: joiningData } = await supabase
         .from("joining")
         .select("serial_no, current_bank_account_no")
         .in("serial_no", serials);
 
-      if (joinErr) {
-        console.warn("Failed to fetch joining bank details:", joinErr);
-      } else {
-        (joiningData || []).forEach((j) => {
-          joiningMap[j.serial_no] = j.current_bank_account_no || "";
-        });
-      }
+      (joiningData || []).forEach((j) => {
+        joiningMap[j.serial_no] = j.current_bank_account_no || "";
+      });
     }
 
+    // ---- Map Final Data ----
     const pending = rows
       .map((item) => ({
         id: item.id,
@@ -52,16 +49,18 @@ export const fetchPendingLeaving = async () => {
         designation: item.designation,
         department: item.department,
         workingLocation: item.working_location,
+
+        // ✅ Company from VIEW
+        companyName: item.company || "",
+
         amount: item.amount,
         joiningDate: item.date_of_joining,
         leavingDate: item.leaving_date,
         lastWorkingDate: item.last_working_date,
 
-        // New: payment-specific planned/actual columns
         plannedPaymentDate: item.planned_payment_date,
         actualPaymentDate: item.actual_payment_date,
 
-        // Preserve old leaving date fields for compatibility
         plannedLeavingDate: item.planned_leaving_date,
         actualLeavingDate: item.actual_leaving_date,
 
@@ -72,26 +71,27 @@ export const fetchPendingLeaving = async () => {
 
         finalReleaseDate: item.final_release_date,
         payment_link: item.payment_link,
-        // Prefer joining bank account when available
+
         bank_account:
           joiningMap[item.employee_no] ||
-          joiningMap[item.employee_code] ||
           item.current_bank_account_no ||
           item.bank_account ||
           "",
       }))
-      // Show rows where planned_payment_date exists and actual_payment_date is empty
       .filter(
-        (r) => r.plannedPaymentDate && !r.actualPaymentDate && r.employeeNo,
+        (r) =>
+          r.plannedPaymentDate &&
+          !r.actualPaymentDate &&
+          r.employeeNo,
       );
 
-    console.log("Pending leaving approvals (with bank details):", pending);
     return pending;
   } catch (error) {
     console.error("fetchPendingLeaving error:", error);
     throw error;
   }
 };
+
 
 /**
  * Try to set actual/payment date for the given id.

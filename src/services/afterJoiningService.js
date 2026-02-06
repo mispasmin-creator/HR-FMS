@@ -6,7 +6,7 @@ import { supabase } from "../config/supabase";
 export const fetchAfterJoiningData = async () => {
   try {
     const { data, error } = await supabase
-      .from("joining")
+      .from("joining_with_company")
       .select("*")
       .order("created_at", { ascending: false });
 
@@ -96,7 +96,7 @@ export const fetchAfterJoiningData = async () => {
         remarks: item.remarks || "",
         joiningPlace: item.after_joining_joining_place || "",
         nextSalaryIncrementDate: item.next_salary_increment_date || "",
-        companyName: item.after_joining_company_name || "",
+        companyName: item.company || item.after_joining_company_name || "",
 
         // personal
         bloodGroup: item.blood_group || "",

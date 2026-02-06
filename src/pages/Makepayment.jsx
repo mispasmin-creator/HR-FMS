@@ -97,6 +97,7 @@ const MakePayment = () => {
       email: item.email || item.candidate_email || "",
       joiningDate: item.date_of_joining || item.joiningDate || "",
       aadharNo: item.aadhar || item.aadhar_no || item.aadharNo || "",
+      companyName: item.companyName || ""
     };
   };
 
@@ -237,6 +238,7 @@ EMPLOYEE DETAILS:
 -----------------
 Employee ID: ${item.employeeId || "N/A"}
 Name: ${item.name || "N/A"}
+Company: ${item.companyName || "N/A"}
 Designation: ${item.designation || "N/A"}
 Department: ${item.department || "N/A"}
 Aadhar No: ${item.aadharNo || "N/A"}
@@ -432,7 +434,7 @@ Amount: ₹${(Number(item.amount) || 0).toLocaleString("en-IN")} only.
                   paymentData
                     .map(
                       (item) =>
-                        `"${item.employeeId}","${item.name}","${item.designation}","${item.department}",${item.amount},"${item.mobileNo}","${item.bankAccount}","${item.branchName}","${formatDateForDisplay(item.plannedDate)}","${formatDateForDisplay(item.lastWorkingDate)}"`,
+                        `"${item.employeeId}","${item.name}","${item.companyName}","${item.designation}","${item.department}",${item.amount},"${item.mobileNo}","${item.bankAccount}","${item.branchName}","${formatDateForDisplay(item.plannedDate)}","${formatDateForDisplay(item.lastWorkingDate)}"`,
                     )
                     .join("\n");
 
@@ -608,6 +610,9 @@ Amount: ₹${(Number(item.amount) || 0).toLocaleString("en-IN")} only.
                         Name
                       </th>
                       <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-blue-900 uppercase bg-blue-100">
+                        Company
+                      </th>
+                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-blue-900 uppercase bg-blue-100">
                         Designation
                       </th>
                       <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-blue-900 uppercase bg-blue-100">
@@ -654,6 +659,9 @@ Amount: ₹${(Number(item.amount) || 0).toLocaleString("en-IN")} only.
                             <div className="text-xs text-gray-500">
                               {item.mobileNo || "No phone"}
                             </div>
+                          </td>
+                          <td className="px-4 py-4 text-sm font-medium text-gray-900 whitespace-nowrap">
+                            {item.companyName || "N/A"}
                           </td>
                           <td className="px-4 py-4 text-sm text-gray-900 whitespace-nowrap">
                             {item.designation}
