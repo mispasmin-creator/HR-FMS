@@ -212,7 +212,7 @@ export const fetchLeavingHistory = async () => {
     const { data, error } = await supabase
       .from("leaving")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("employee_no", { ascending: false });
 
     if (error) throw error;
 
@@ -223,6 +223,8 @@ export const fetchLeavingHistory = async () => {
       dateOfLeaving: item.leaving_date,
       designation: item.designation,
       department: item.department,
+      amount: item.amount,
+      workingDays: item.working_days,
       reasonOfLeaving: item.reason_of_leaving,
       paymentLink: item.payment_link,
     }));

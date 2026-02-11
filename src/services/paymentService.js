@@ -71,7 +71,7 @@ export const fetchPendingLeaving = async () => {
 
         finalReleaseDate: item.final_release_date,
         payment_link: item.payment_link,
-
+        workingDays: item.working_days,
         bank_account:
           joiningMap[item.employee_no] ||
           item.current_bank_account_no ||

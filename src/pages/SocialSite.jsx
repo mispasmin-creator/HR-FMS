@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, Clock, CheckCircle, X, AlertCircle, Upload, Image as ImageIcon } from "lucide-react";
+import { Search, Clock, CheckCircle, X, AlertCircle, Upload, File, Image as ImageIcon } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   fetchPendingIndentsForSocialSite,
@@ -64,6 +64,8 @@ const SocialSite = () => {
 
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [previewType, setPreviewType] = useState(null); // 'image' | 'pdf'
+  const [objectUrl, setObjectUrl] = useState(null);
 
   // Social Site Types options
   const socialSiteOptions = [
@@ -126,6 +128,13 @@ const SocialSite = () => {
     });
     setImageFile(null);
     setImagePreview(item.job_description_image || null);
+    // determine preview type from existing url (if any)
+    if (item.job_description_image) {
+      const lower = item.job_description_image.toLowerCase();
+      setPreviewType(lower.includes('.pdf') ? 'pdf' : 'image');
+    } else {
+      setPreviewType(null);
+    }
     setShowModal(true);
   };
 
@@ -150,32 +159,59 @@ const SocialSite = () => {
   const handleImageChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        toast.error('Please select an image file');
+      // Accept images and PDFs
+      const isImage = file.type.startsWith('image/');
+      const isPdf = file.type === 'application/pdf';
+      if (!isImage && !isPdf) {
+        toast.error('Please select an image or PDF file');
         return;
       }
 
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
+      // Validate file size (images max 5MB, pdf max 10MB)
+      if (isImage && file.size > 5 * 1024 * 1024) {
         toast.error('Image size should be less than 5MB');
         return;
       }
+      if (isPdf && file.size > 10 * 1024 * 1024) {
+        toast.error('PDF size should be less than 10MB');
+        return;
+      }
+
+      // cleanup previous object URL if any
+      if (objectUrl) {
+        try { URL.revokeObjectURL(objectUrl); } catch (e) {}
+        setObjectUrl(null);
+      }
 
       setImageFile(file);
-      
-      // Create preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+
+      if (isImage) {
+        // Create image preview (data URL)
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result);
+          setPreviewType('image');
+        };
+        reader.readAsDataURL(file);
+      } else {
+        // For PDF, create object URL for preview/embed
+        const url = URL.createObjectURL(file);
+        setImagePreview(url);
+        setObjectUrl(url);
+        setPreviewType('pdf');
+      }
     }
   };
 
   const handleRemoveImage = () => {
     setImageFile(null);
+    // revoke object url if created
+    if (objectUrl) {
+      try { URL.revokeObjectURL(objectUrl); } catch (e) {}
+      setObjectUrl(null);
+    }
     setImagePreview(null);
+    setPreviewType(null);
     setFormData(prev => ({
       ...prev,
       jobDescriptionImage: null
@@ -526,8 +562,8 @@ const SocialSite = () => {
                               rel="noopener noreferrer"
                               className="text-indigo-600 hover:text-indigo-800 flex items-center"
                             >
-                              <ImageIcon size={16} className="mr-1" />
-                              View Image
+                              <File size={16} className="mr-1" />
+                              View File
                             </a>
                           ) : (
                             <span className="text-gray-400">-</span>
@@ -659,14 +695,29 @@ const SocialSite = () => {
                           Job Description Image
                         </label>
                         
-                        {/* Image Preview */}
-                        {imagePreview && (
+                        {/* Image/PDF Preview */}
+                        {imagePreview && previewType === 'image' && (
                           <div className="relative mb-3">
                             <img
                               src={imagePreview}
                               alt="Job Description"
                               className="w-full max-h-64 object-contain border border-gray-300 rounded-md"
                             />
+                            <button
+                              type="button"
+                              onClick={handleRemoveImage}
+                              className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                        )}
+
+                        {imagePreview && previewType === 'pdf' && (
+                          <div className="relative mb-3">
+                            <div className="border border-gray-300 rounded-md overflow-hidden">
+                              <embed src={imagePreview} type="application/pdf" className="w-full h-64" />
+                            </div>
                             <button
                               type="button"
                               onClick={handleRemoveImage}
@@ -695,7 +746,7 @@ const SocialSite = () => {
                                     <span className="font-semibold">Click to upload</span> or drag and drop
                                   </p>
                                   <p className="text-xs text-gray-500">
-                                    PNG, JPG, JPEG (MAX. 5MB)
+                                    PNG, JPG, JPEG (MAX. 5MB) or PDF (MAX. 10MB)
                                   </p>
                                 </>
                               )}
@@ -703,7 +754,7 @@ const SocialSite = () => {
                             <input
                               type="file"
                               className="hidden"
-                              accept="image/*"
+                              accept="image/*,application/pdf"
                               onChange={handleImageChange}
                             />
                           </label>

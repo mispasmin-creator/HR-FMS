@@ -84,6 +84,8 @@ const Sidebar = ({ onClose }) => {
 
   const handleLogout = () => {
     localStorage.removeItem("user");
+    localStorage.removeItem("savedUsername");
+    localStorage.removeItem("savedPassword");
     navigate("/login", { replace: true });
   };
 

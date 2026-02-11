@@ -97,7 +97,8 @@ const MakePayment = () => {
       email: item.email || item.candidate_email || "",
       joiningDate: item.date_of_joining || item.joiningDate || "",
       aadharNo: item.aadhar || item.aadhar_no || item.aadharNo || "",
-      companyName: item.companyName || ""
+      companyName: item.companyName || "",
+      workingDays: item.workingDays || ""
     };
   };
 
@@ -619,6 +620,9 @@ Amount: ₹${(Number(item.amount) || 0).toLocaleString("en-IN")} only.
                         Department
                       </th>
                       <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-blue-900 uppercase bg-blue-100">
+                        Working Days
+                      </th>
+                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-blue-900 uppercase bg-blue-100">
                         Amount
                       </th>
                       <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-blue-900 uppercase bg-blue-100">
@@ -668,6 +672,9 @@ Amount: ₹${(Number(item.amount) || 0).toLocaleString("en-IN")} only.
                           </td>
                           <td className="px-4 py-4 text-sm text-gray-900 whitespace-nowrap">
                             {item.department || "N/A"}
+                          </td>
+                          <td className="px-4 py-4 text-sm text-gray-900 whitespace-nowrap">
+                            {item.workingDays || "-"}
                           </td>
                           <td className="px-4 py-4 text-sm font-bold text-gray-900 whitespace-nowrap">
                             ₹

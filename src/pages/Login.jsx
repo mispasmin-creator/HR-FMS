@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Lock, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -15,13 +15,25 @@ const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [isAutoLoggingIn, setIsAutoLoggingIn] = useState(false);
   const login = useAuthStore((state) => state.login);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
+  // Check for stored credentials and auto-login
+  useEffect(() => {
+    const storedUsername = localStorage.getItem('savedUsername');
+    const storedPassword = localStorage.getItem('savedPassword');
 
+    if (storedUsername && storedPassword) {
+      setIsAutoLoggingIn(true);
+      setUsername(storedUsername);
+      setPassword(storedPassword);
+      // Auto-login with stored credentials
+      performLogin(storedUsername, storedPassword);
+    }
+  }, []);
+
+  const performLogin = async (user, pass) => {
     try {
       const [userRes, leavingRes] = await Promise.all([
         fetch(SHEET_API_URL),
@@ -34,6 +46,7 @@ const Login = () => {
       if (!userJson.success || !leavingJson.success) {
         toast.error('Error fetching data');
         setSubmitting(false);
+        setIsAutoLoggingIn(false);
         return;
       }
 
@@ -54,12 +67,16 @@ const Login = () => {
       });
 
       const matchedUser = users.find(
-        (u) => u.Username === username && u.Password === password
+        (u) => u.Username === user && u.Password === pass
       );
 
       if (!matchedUser) {
         toast.error('Invalid credentials');
         setSubmitting(false);
+        setIsAutoLoggingIn(false);
+        // Clear localStorage if credentials are invalid
+        localStorage.removeItem('savedUsername');
+        localStorage.removeItem('savedPassword');
         return;
       }
 
@@ -75,11 +92,18 @@ const Login = () => {
       if (isUserLeaving) {
         toast.error('Employee access has been deactivated');
         setSubmitting(false);
+        setIsAutoLoggingIn(false);
+        // Clear localStorage if user is leaving
+        localStorage.removeItem('savedUsername');
+        localStorage.removeItem('savedPassword');
         return;
       }
 
       toast.success('Login successful!');
+      // Store user and credentials in localStorage
       localStorage.setItem('user', JSON.stringify(matchedUser));
+      localStorage.setItem('savedUsername', user);
+      localStorage.setItem('savedPassword', pass);
       login(matchedUser);
 
       const adminStatus = matchedUser.Admin ? matchedUser.Admin.trim().toLowerCase() : 'no';
@@ -93,7 +117,14 @@ const Login = () => {
       toast.error('Network error');
     } finally {
       setSubmitting(false);
+      setIsAutoLoggingIn(false);
     }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    performLogin(username, password);
   };
 
   return (

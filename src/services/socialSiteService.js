@@ -62,14 +62,28 @@ export const updateSocialSiteInfo = async (indentId, socialSiteData) => {
   }
 };
 
-// Upload image to Supabase storage for social site job descriptions
+// Upload image OR PDF to Supabase storage for social site job descriptions
 export const uploadSocialSiteImage = async (file, path) => {
   try {
+    // ✅ Allowed file types
+    const allowedTypes = [
+      "application/pdf",
+      "image/png",
+      "image/jpeg",
+      "image/jpg",
+      "image/webp"
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      return { success: false, error: "Only PDF and Image files are allowed" };
+    }
+
     const { data, error } = await supabase.storage
       .from("social-site-images")
       .upload(path, file, {
         cacheControl: "3600",
         upsert: true,
+        contentType: file.type, // ⭐ important for pdf + images
       });
 
     if (error) throw error;
@@ -81,7 +95,7 @@ export const uploadSocialSiteImage = async (file, path) => {
 
     return { success: true, url: publicData.publicUrl };
   } catch (error) {
-    console.error("Error uploading social site image:", error);
+    console.error("Error uploading social site file:", error);
     return { success: false, error: error.message };
   }
 };

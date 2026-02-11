@@ -566,9 +566,8 @@ const FindEnquiry = () => {
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                             {item.completion_date
-                              ? new Date(
-                                item.completion_date,
-                              ).toLocaleDateString()
+                              ? 
+                                formatDateForDisplay(item.completion_date)
                               : "-"}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">

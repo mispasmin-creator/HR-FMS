@@ -164,15 +164,30 @@ const handleSearchEmployee = async () => {
   };
 
 const handleSubmit = async (e) => {
-  e.preventDefault();
+  if (e) e.preventDefault();
 
+  // Validate all required fields
   if (
     !formData.dateOfLeaving ||
     !formData.reasonOfLeaving ||
     !formData.typeOfLeave ||
-    !formData.lastWorkingDate
+    !formData.lastWorkingDate ||
+    !formData.workingDays ||
+    !formData.amount ||
+    !formData.mobileNumber
   ) {
     toast.error("Please fill all required fields");
+    return;
+  }
+
+  // Validate numeric fields
+  if (isNaN(formData.workingDays) || formData.workingDays <= 0) {
+    toast.error("Working days must be a positive number");
+    return;
+  }
+
+  if (isNaN(formData.amount) || formData.amount < 0) {
+    toast.error("Amount must be a valid number");
     return;
   }
 
@@ -480,6 +495,8 @@ const handleSubmit = async (e) => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Of Leaving</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Designation</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Working Days</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason Of Leaving</th>
                   </tr>
                 </thead>
@@ -497,6 +514,8 @@ const handleSubmit = async (e) => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.designation}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.department}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.amount}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.workingDays}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.reasonOfLeaving}</td>
                       </tr>
                     ))
@@ -524,7 +543,7 @@ const handleSubmit = async (e) => {
                 <X size={20} />
               </button>
             </div>
-            <div className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Serial Number</label>
                 <input
@@ -556,7 +575,19 @@ const handleSubmit = async (e) => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Type of Leave *</label>
+                <label className="block text-sm font-medium text-gray-500 mb-1">Mobile Number *</label>
+                <input
+                  type="tel"
+                  name="mobileNumber"
+                  value={formData.mobileNumber}
+                  onChange={handleInputChange}
+                  className="w-full border border-gray-500 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-700"
+                  placeholder="Enter mobile number"
+                  required
+                />
+              </div>
+              
+              <div>
                 <select
                   name="typeOfLeave"
                   value={formData.typeOfLeave}
@@ -671,13 +702,14 @@ const handleSubmit = async (e) => {
             
               <div className="flex justify-end space-x-2 pt-4 sticky bottom-0 bg-white border-t border-gray-100 -mx-6 px-6 py-4 mt-6">
                 <button
+                  type="button"
                   onClick={() => setShowModal(false)}
                   className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={handleSubmit}
+                  type="submit"
                   className={`px-4 py-2 text-white bg-indigo-700 rounded-md hover:bg-indigo-800 min-h-[42px] flex items-center justify-center ${
                     submitting ? 'opacity-90 cursor-not-allowed' : ''
                   }`}
@@ -699,7 +731,7 @@ const handleSubmit = async (e) => {
                   ) : 'Submit'}
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}
