@@ -248,6 +248,25 @@ const LeavingProcessTracker = () => {
     }
   };
 
+  const formatDateTime = (dateString) => {
+    if (!dateString) return "-";
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+      return date.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+    } catch (error) {
+      console.error("Error formatting date:", dateString, error);
+      return "-";
+    }
+  };
+
   const formatDateForDisplay = (dateString) => {
     if (
       !dateString ||
@@ -306,19 +325,19 @@ const LeavingProcessTracker = () => {
         return activeTab === "pending"
           ? approvalData.pending.map((item) => ({ ...item, stage: "approval" }))
           : approvalData.history.map((item) => ({
-              ...item,
-              stage: "approval",
-            }));
+            ...item,
+            stage: "approval",
+          }));
       case "reporting":
         return activeTab === "pending"
           ? reportingData.pending.map((item) => ({
-              ...item,
-              stage: "reporting",
-            }))
+            ...item,
+            stage: "reporting",
+          }))
           : reportingData.history.map((item) => ({
-              ...item,
-              stage: "reporting",
-            }));
+            ...item,
+            stage: "reporting",
+          }));
       case "it":
         return activeTab === "pending"
           ? itData.pending.map((item) => ({ ...item, stage: "it" }))
@@ -679,8 +698,8 @@ const LeavingProcessTracker = () => {
           break;
 
         case "store":
-          updateData.store_clearance_summary = storeForm.storeAssets 
-            ? "Store Assets Handed Over" 
+          updateData.store_clearance_summary = storeForm.storeAssets
+            ? "Store Assets Handed Over"
             : "No Assets Handed Over";
           updateData.actual_store_clearance_date = now;
           break;
@@ -775,36 +794,34 @@ const LeavingProcessTracker = () => {
       <div className="p-4 bg-white rounded-lg shadow">
         <div className="flex flex-wrap gap-2">
           <button
-            className={`px-4 py-2 rounded-md text-sm font-medium flex items-center ${
-              activeStageTab === "all"
-                ? "bg-gray-700 text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
+            className={`px-4 py-2 rounded-md text-sm font-medium flex items-center ${activeStageTab === "all"
+              ? "bg-gray-700 text-white"
+              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
             onClick={() => setActiveStageTab("all")}
           >
             <Filter size={14} className="mr-2" />
             All Stages (
             {activeTab === "pending"
               ? approvalData.pending.length +
-                reportingData.pending.length +
-                itData.pending.length +
-                adminData.pending.length +
-                accountData.pending.length +
-                storeData.pending.length
+              reportingData.pending.length +
+              itData.pending.length +
+              adminData.pending.length +
+              accountData.pending.length +
+              storeData.pending.length
               : approvalData.history.length +
-                reportingData.history.length +
-                itData.history.length +
-                adminData.history.length +
-                accountData.history.length +
-                storeData.history.length}
+              reportingData.history.length +
+              itData.history.length +
+              adminData.history.length +
+              accountData.history.length +
+              storeData.history.length}
             )
           </button>
           <button
-            className={`px-4 py-2 rounded-md text-sm font-medium flex items-center ${
-              activeStageTab === "approval"
-                ? "bg-blue-600 text-white"
-                : "bg-blue-100 text-blue-700 hover:bg-blue-200"
-            }`}
+            className={`px-4 py-2 rounded-md text-sm font-medium flex items-center ${activeStageTab === "approval"
+              ? "bg-blue-600 text-white"
+              : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+              }`}
             onClick={() => setActiveStageTab("approval")}
           >
             <FileCheck size={14} className="mr-2" />
@@ -815,11 +832,10 @@ const LeavingProcessTracker = () => {
             )
           </button>
           <button
-            className={`px-4 py-2 rounded-md text-sm font-medium flex items-center ${
-              activeStageTab === "reporting"
-                ? "bg-indigo-600 text-white"
-                : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
-            }`}
+            className={`px-4 py-2 rounded-md text-sm font-medium flex items-center ${activeStageTab === "reporting"
+              ? "bg-indigo-600 text-white"
+              : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+              }`}
             onClick={() => setActiveStageTab("reporting")}
           >
             <User size={14} className="mr-2" />
@@ -830,11 +846,10 @@ const LeavingProcessTracker = () => {
             )
           </button>
           <button
-            className={`px-4 py-2 rounded-md text-sm font-medium flex items-center ${
-              activeStageTab === "it"
-                ? "bg-green-600 text-white"
-                : "bg-green-100 text-green-700 hover:bg-green-200"
-            }`}
+            className={`px-4 py-2 rounded-md text-sm font-medium flex items-center ${activeStageTab === "it"
+              ? "bg-green-600 text-white"
+              : "bg-green-100 text-green-700 hover:bg-green-200"
+              }`}
             onClick={() => setActiveStageTab("it")}
           >
             <Laptop size={14} className="mr-2" />
@@ -845,11 +860,10 @@ const LeavingProcessTracker = () => {
             )
           </button>
           <button
-            className={`px-4 py-2 rounded-md text-sm font-medium flex items-center ${
-              activeStageTab === "admin"
-                ? "bg-orange-600 text-white"
-                : "bg-orange-100 text-orange-700 hover:bg-orange-200"
-            }`}
+            className={`px-4 py-2 rounded-md text-sm font-medium flex items-center ${activeStageTab === "admin"
+              ? "bg-orange-600 text-white"
+              : "bg-orange-100 text-orange-700 hover:bg-orange-200"
+              }`}
             onClick={() => setActiveStageTab("admin")}
           >
             <Building size={14} className="mr-2" />
@@ -860,11 +874,10 @@ const LeavingProcessTracker = () => {
             )
           </button>
           <button
-            className={`px-4 py-2 rounded-md text-sm font-medium flex items-center ${
-              activeStageTab === "account"
-                ? "bg-blue-600 text-white"
-                : "bg-blue-100 text-blue-700 hover:bg-blue-200"
-            }`}
+            className={`px-4 py-2 rounded-md text-sm font-medium flex items-center ${activeStageTab === "account"
+              ? "bg-blue-600 text-white"
+              : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+              }`}
             onClick={() => setActiveStageTab("account")}
           >
             <Briefcase size={14} className="mr-2" />
@@ -875,11 +888,10 @@ const LeavingProcessTracker = () => {
             )
           </button>
           <button
-            className={`px-4 py-2 rounded-md text-sm font-medium flex items-center ${
-              activeStageTab === "store"
-                ? "bg-purple-600 text-white"
-                : "bg-purple-100 text-purple-700 hover:bg-purple-200"
-            }`}
+            className={`px-4 py-2 rounded-md text-sm font-medium flex items-center ${activeStageTab === "store"
+              ? "bg-purple-600 text-white"
+              : "bg-purple-100 text-purple-700 hover:bg-purple-200"
+              }`}
             onClick={() => setActiveStageTab("store")}
           >
             <Store size={14} className="mr-2" />
@@ -916,42 +928,40 @@ const LeavingProcessTracker = () => {
         <div className="border-b border-gray-300">
           <nav className="flex -mb-px">
             <button
-              className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                activeTab === "pending"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
+              className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "pending"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
               onClick={() => setActiveTab("pending")}
             >
               <Clock size={16} className="inline mr-2" />
               Pending (
               {activeStageTab === "all"
                 ? approvalData.pending.length +
-                  reportingData.pending.length +
-                  itData.pending.length +
-                  adminData.pending.length +
-                  accountData.pending.length +
-                  storeData.pending.length
+                reportingData.pending.length +
+                itData.pending.length +
+                adminData.pending.length +
+                accountData.pending.length +
+                storeData.pending.length
                 : filteredData.length}
               )
             </button>
             <button
-              className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                activeTab === "history"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
+              className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "history"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
               onClick={() => setActiveTab("history")}
             >
               <CheckCircle size={16} className="inline mr-2" />
               History (
               {activeStageTab === "all"
                 ? approvalData.history.length +
-                  reportingData.history.length +
-                  itData.history.length +
-                  adminData.history.length +
-                  accountData.history.length +
-                  storeData.history.length
+                reportingData.history.length +
+                itData.history.length +
+                adminData.history.length +
+                accountData.history.length +
+                storeData.history.length
                 : filteredData.length}
               )
             </button>
@@ -967,6 +977,9 @@ const LeavingProcessTracker = () => {
                   <tr>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Action
+                    </th>
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      Timestamp
                     </th>
                     {activeStageTab === "all" && (
                       <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
@@ -1011,7 +1024,7 @@ const LeavingProcessTracker = () => {
                   {tableLoading ? (
                     <tr>
                       <td
-                        colSpan={activeStageTab === "all" ? 11 : 10}
+                        colSpan={activeStageTab === "all" ? 12 : 11}
                         className="px-6 py-12 text-center"
                       >
                         <div className="flex flex-col items-center justify-center">
@@ -1025,7 +1038,7 @@ const LeavingProcessTracker = () => {
                   ) : error ? (
                     <tr>
                       <td
-                        colSpan={activeStageTab === "all" ? 11 : 10}
+                        colSpan={activeStageTab === "all" ? 12 : 11}
                         className="px-6 py-12 text-center"
                       >
                         <p className="text-red-500">Error: {error}</p>
@@ -1044,22 +1057,24 @@ const LeavingProcessTracker = () => {
 
                       return (
                         <tr key={index} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
+                            {formatDateTime(item.timestamp)}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <button
                               onClick={() => handleProcessClick(item, stage)}
-                              className={`px-3 py-1 text-white rounded-md text-sm hover:opacity-90 ${
-                                stage === "approval"
-                                  ? "bg-blue-600"
-                                  : stage === "reporting"
-                                    ? "bg-indigo-600"
-                                    : stage === "it"
-                                      ? "bg-green-600"
-                                      : stage === "admin"
-                                        ? "bg-orange-600"
-                                        : stage === "account"
-                                          ? "bg-blue-600"
-                                          : "bg-purple-600"
-                              }`}
+                              className={`px-3 py-1 text-white rounded-md text-sm hover:opacity-90 ${stage === "approval"
+                                ? "bg-blue-600"
+                                : stage === "reporting"
+                                  ? "bg-indigo-600"
+                                  : stage === "it"
+                                    ? "bg-green-600"
+                                    : stage === "admin"
+                                      ? "bg-orange-600"
+                                      : stage === "account"
+                                        ? "bg-blue-600"
+                                        : "bg-purple-600"
+                                }`}
                             >
                               Process
                             </button>
@@ -1108,22 +1123,22 @@ const LeavingProcessTracker = () => {
                               ? formatDateForDisplay(item.approvalPlanned)
                               : stage === "reporting"
                                 ? formatDateForDisplay(
-                                    item.reportingManagerPlanned,
-                                  )
+                                  item.reportingManagerPlanned,
+                                )
                                 : stage === "it"
                                   ? formatDateForDisplay(item.itDeptPlanned)
                                   : stage === "admin"
                                     ? formatDateForDisplay(
-                                        item.adminDeptPlanned,
-                                      )
+                                      item.adminDeptPlanned,
+                                    )
                                     : stage === "account"
                                       ? formatDateForDisplay(
-                                          item.accountDeptPlanned,
-                                        )
+                                        item.accountDeptPlanned,
+                                      )
                                       : stage === "store"
                                         ? formatDateForDisplay(
-                                            item.storeDeptPlanned,
-                                          )
+                                          item.storeDeptPlanned,
+                                        )
                                         : "-"}
                           </td>
                         </tr>
@@ -1132,7 +1147,7 @@ const LeavingProcessTracker = () => {
                   ) : (
                     <tr>
                       <td
-                        colSpan={activeStageTab === "all" ? 11 : 10}
+                        colSpan={activeStageTab === "all" ? 12 : 11}
                         className="px-6 py-12 text-center"
                       >
                         <p className="text-gray-500">
@@ -1156,6 +1171,9 @@ const LeavingProcessTracker = () => {
                         Stage
                       </th>
                     )}
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      Timestamp
+                    </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Employee Code
                     </th>
@@ -1186,7 +1204,7 @@ const LeavingProcessTracker = () => {
                   {tableLoading ? (
                     <tr>
                       <td
-                        colSpan={activeStageTab === "all" ? 9 : 8}
+                        colSpan={activeStageTab === "all" ? 10 : 9}
                         className="px-6 py-12 text-center"
                       >
                         <div className="flex flex-col items-center justify-center">
@@ -1200,7 +1218,7 @@ const LeavingProcessTracker = () => {
                   ) : error ? (
                     <tr>
                       <td
-                        colSpan={activeStageTab === "all" ? 9 : 8}
+                        colSpan={activeStageTab === "all" ? 10 : 9}
                         className="px-6 py-12 text-center"
                       >
                         <p className="text-red-500">Error: {error}</p>
@@ -1230,6 +1248,9 @@ const LeavingProcessTracker = () => {
                             </td>
                           )}
                           <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
+                            {formatDateTime(item.timestamp)}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
                             {item.employeeCode}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
@@ -1253,11 +1274,10 @@ const LeavingProcessTracker = () => {
                           <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
                             {stage === "approval" ? (
                               <span
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                  item.approvalStatus === "Approved"
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-red-100 text-red-800"
-                                }`}
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${item.approvalStatus === "Approved"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-red-100 text-red-800"
+                                  }`}
                               >
                                 {item.approvalStatus || "-"}
                               </span>
@@ -1281,7 +1301,7 @@ const LeavingProcessTracker = () => {
                   ) : (
                     <tr>
                       <td
-                        colSpan={activeStageTab === "all" ? 9 : 8}
+                        colSpan={activeStageTab === "all" ? 10 : 9}
                         className="px-6 py-12 text-center"
                       >
                         <p className="text-gray-500">No history found.</p>
@@ -1864,10 +1884,8 @@ const LeavingProcessTracker = () => {
                 </button>
                 <button
                   type="submit"
-                  className={`px-4 py-2 text-white rounded-md hover:opacity-90 min-h-[42px] flex items-center justify-center ${
-                    submitting ? "opacity-90 cursor-not-allowed" : ""
-                  } ${
-                    selectedItem.stage === "approval"
+                  className={`px-4 py-2 text-white rounded-md hover:opacity-90 min-h-[42px] flex items-center justify-center ${submitting ? "opacity-90 cursor-not-allowed" : ""
+                    } ${selectedItem.stage === "approval"
                       ? "bg-blue-600 hover:bg-blue-700"
                       : selectedItem.stage === "reporting"
                         ? "bg-indigo-600 hover:bg-indigo-700"
@@ -1878,7 +1896,7 @@ const LeavingProcessTracker = () => {
                             : selectedItem.stage === "account"
                               ? "bg-blue-600 hover:bg-blue-700"
                               : "bg-purple-600 hover:bg-purple-700"
-                  }`}
+                    }`}
                   disabled={submitting}
                 >
                   {submitting ? (

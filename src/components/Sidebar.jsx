@@ -2215,7 +2215,9 @@ const Sidebar = ({ onClose }) => {
         <div className="flex items-center justify-between flex-shrink-0 p-5 border-b border-indigo-800">
           {!isCollapsed && (
             <h1 className="flex items-center gap-2 text-xl font-bold text-white">
-              <Users size={24} />
+              <div className="flex-shrink-0 w-8 h-8 overflow-hidden bg-white rounded-full">
+                <img src="/Logo.jpeg" alt="Logo" className="object-cover w-full h-full" />
+              </div>
               <span>{currentLang === "en" ? "HR FMS" : "एचआर एफएमएस"}</span>
 
               <div id="google_translate_element" style={{ display: "none" }} />
@@ -2258,11 +2260,10 @@ const Sidebar = ({ onClose }) => {
                     e.stopPropagation();
                     handleNavigation(item.path);
                   }}
-                  className={`flex items-center justify-between py-2.5 px-4 rounded-lg transition-colors relative cursor-pointer w-full text-left ${
-                    isActive
+                  className={`flex items-center justify-between py-2.5 px-4 rounded-lg transition-colors relative cursor-pointer w-full text-left ${isActive
                       ? "bg-indigo-800 text-white"
                       : "text-indigo-100 hover:bg-indigo-800 hover:text-white"
-                  }`}
+                    }`}
                 >
                   <div className="relative flex items-center">
                     <item.icon
@@ -2332,9 +2333,8 @@ const Sidebar = ({ onClose }) => {
     <>
       {/* Mobile menu button - visible only on mobile */}
       <button
-        className={`md:hidden fixed top-4 left-4 z-50 p-2 bg-indigo-900 text-white rounded-md shadow-md transition-opacity duration-300 ${
-          isOpen ? "opacity-0 pointer-events-none" : "opacity-100"
-        }`}
+        className={`md:hidden fixed top-4 left-4 z-50 p-2 bg-indigo-900 text-white rounded-md shadow-md transition-opacity duration-300 ${isOpen ? "opacity-0 pointer-events-none" : "opacity-100"
+          }`}
         onClick={() => setIsOpen(true)}
       >
         <Menu size={24} />
@@ -2342,9 +2342,8 @@ const Sidebar = ({ onClose }) => {
 
       {/* Tablet menu button - visible on tablet (hidden on mobile and desktop) */}
       <button
-        className={`hidden md:block lg:hidden fixed top-4 left-4 z-50 p-2 bg-indigo-900 text-white rounded-md shadow-md transition-opacity duration-300 ${
-          isOpen ? "opacity-0 pointer-events-none" : "opacity-100"
-        }`}
+        className={`hidden md:block lg:hidden fixed top-4 left-4 z-50 p-2 bg-indigo-900 text-white rounded-md shadow-md transition-opacity duration-300 ${isOpen ? "opacity-0 pointer-events-none" : "opacity-100"
+          }`}
         onClick={() => setIsOpen(true)}
       >
         <Menu size={24} />

@@ -10,7 +10,7 @@ import {
   generateNextAAPNumber,
   uploadFileToStorage,
   getEnquiriesForIndent,
-  markEnquiryAsDone 
+  markEnquiryAsDone
 } from "../services/enquiryService";
 
 const FindEnquiry = () => {
@@ -62,6 +62,16 @@ const FindEnquiry = () => {
   const formatDateForDisplay = (dateString) => {
     if (!dateString) return "-";
     return new Date(dateString).toLocaleDateString("en-GB");
+  };
+
+  const formatDateTime = (dateString) => {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    return date.toLocaleString("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
   };
 
   // Fetch all data from Supabase
@@ -434,6 +444,9 @@ const FindEnquiry = () => {
                       Action
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      Timestamp
+                    </th>
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Indent No.
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
@@ -463,7 +476,7 @@ const FindEnquiry = () => {
                   {!dataLoaded && filteredPendingData.length === 0 ? (
                     <tr>
                       <td
-                        colSpan="9"
+                        colSpan="10"
                         className="px-6 py-4 text-center text-gray-500"
                       >
                         Loading data...
@@ -471,7 +484,7 @@ const FindEnquiry = () => {
                     </tr>
                   ) : filteredPendingData.length === 0 ? (
                     <tr>
-                      <td colSpan="9" className="px-6 py-12 text-center">
+                      <td colSpan="10" className="px-6 py-12 text-center">
                         <p className="text-gray-500">
                           No pending enquiries found.
                         </p>
@@ -510,6 +523,9 @@ const FindEnquiry = () => {
                               </button>
 
                             </div>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                            {formatDateTime(item.created_at)}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                             {item.indent_number}
@@ -566,8 +582,8 @@ const FindEnquiry = () => {
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                             {item.completion_date
-                              ? 
-                                formatDateForDisplay(item.completion_date)
+                              ?
+                              formatDateForDisplay(item.completion_date)
                               : "-"}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
@@ -591,6 +607,9 @@ const FindEnquiry = () => {
                   <tr>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Indent No.
+                    </th>
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      Timestamp
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Enquiry No.
@@ -628,7 +647,7 @@ const FindEnquiry = () => {
                   {!dataLoaded && filteredHistoryData.length === 0 ? (
                     <tr>
                       <td
-                        colSpan="11"
+                        colSpan="12"
                         className="px-6 py-4 text-center text-gray-500"
                       >
                         Loading data...
@@ -636,7 +655,7 @@ const FindEnquiry = () => {
                     </tr>
                   ) : filteredHistoryData.length === 0 ? (
                     <tr>
-                      <td colSpan="11" className="px-6 py-12 text-center">
+                      <td colSpan="12" className="px-6 py-12 text-center">
                         <p className="text-gray-500">
                           No enquiry history found.
                         </p>
@@ -647,6 +666,9 @@ const FindEnquiry = () => {
                       <tr key={item.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.indent_number}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {formatDateTime(item.created_at)}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.candidate_enquiry_number}

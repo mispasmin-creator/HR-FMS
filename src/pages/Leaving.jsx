@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Search, Clock, CheckCircle, X, AlertCircle } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
-import { 
-  fetchEmployeeForLeaving, 
-  submitLeavingRequest, 
-  fetchLeavingHistory 
+import {
+  fetchEmployeeForLeaving,
+  submitLeavingRequest,
+  fetchLeavingHistory
 } from "../services/leavingService";
 
 
@@ -49,7 +49,7 @@ const Leaving = () => {
   };
 
   // Search employee by code
-const handleSearchEmployee = async () => {
+  const handleSearchEmployee = async () => {
     if (!employeeCode.trim()) {
       toast.error("Please enter employee code");
       return;
@@ -94,7 +94,8 @@ const handleSearchEmployee = async () => {
       department: result.data.department,
       mobileNo: result.data.mobile_no,
       firmName: result.data.after_joining_company_name,
-      workingPlace: result.data.after_joining_joining_place
+      workingPlace: result.data.after_joining_joining_place,
+      timestamp: result.data.created_at
     });
 
     setUiMessage({ type: 'success', text: `Employee Found: ${result.data.name_as_per_aadhar}` });
@@ -116,7 +117,7 @@ const handleSearchEmployee = async () => {
   // Filter history data
   const filteredHistoryData = historyData.filter(item => {
     const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = 
+    const matchesSearch =
       item.name?.toLowerCase().includes(searchLower) ||
       item.employeeId?.toLowerCase().includes(searchLower);
     return matchesSearch;
@@ -144,98 +145,116 @@ const handleSearchEmployee = async () => {
     }));
   };
 
+  const formatDateTime = (dateString) => {
+    if (!dateString) return "-";
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+      return date.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+    } catch (e) {
+      return dateString;
+    }
+  };
+
   const formatDOB = (dateString) => {
     if (!dateString) return '';
-    
+
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) {
         return dateString;
       }
-      
+
       const day = date.getDate().toString().padStart(2, '0');
       const month = (date.getMonth() + 1).toString().padStart(2, '0');
       const year = date.getFullYear();
-      
+
       return `${day}/${month}/${year}`;
     } catch (e) {
       return dateString;
     }
   };
 
-const handleSubmit = async (e) => {
-  if (e) e.preventDefault();
+  const handleSubmit = async (e) => {
+    if (e) e.preventDefault();
 
-  // Validate all required fields
-  if (
-    !formData.dateOfLeaving ||
-    !formData.reasonOfLeaving ||
-    !formData.typeOfLeave ||
-    !formData.lastWorkingDate ||
-    !formData.workingDays ||
-    !formData.amount ||
-    !formData.mobileNumber
-  ) {
-    toast.error("Please fill all required fields");
-    return;
-  }
-
-  // Validate numeric fields
-  if (isNaN(formData.workingDays) || formData.workingDays <= 0) {
-    toast.error("Working days must be a positive number");
-    return;
-  }
-
-  if (isNaN(formData.amount) || formData.amount < 0) {
-    toast.error("Amount must be a valid number");
-    return;
-  }
-
-
-  try {
-    setSubmitting(true);
-
-    const result = await submitLeavingRequest(selectedItem, formData);
-
-    if (!result.success) {
-      throw new Error(result.error || "Failed to submit leaving request");
+    // Validate all required fields
+    if (
+      !formData.dateOfLeaving ||
+      !formData.reasonOfLeaving ||
+      !formData.typeOfLeave ||
+      !formData.lastWorkingDate ||
+      !formData.workingDays ||
+      !formData.amount ||
+      !formData.mobileNumber
+    ) {
+      toast.error("Please fill all required fields");
+      return;
     }
 
-    // ✅ Reset form
-    setFormData({
-      dateOfLeaving: "",
-      reasonOfLeaving: "",
-      typeOfLeave: "",
-      mobileNumber: "",
-      lastWorkingDate: "",
-      workingDays: "",
-      amount: ""
-    });
+    // Validate numeric fields
+    if (isNaN(formData.workingDays) || formData.workingDays <= 0) {
+      toast.error("Working days must be a positive number");
+      return;
+    }
 
-    // ✅ Close modal & clear selected employee
-    setShowModal(false);
-    setSelectedItem(null);
-    setSelectedEmployee(null);
-    setSearchTerm("");
-    setUiMessage(null);
-    setEmployeeCode("");
-
-    // ✅ LOAD HISTORY FROM DB (without full page loading spinner)
-    await loadLeavingHistory(false);
-
-    // ✅ SWITCH TAB
-    setActiveTab("history");
+    if (isNaN(formData.amount) || formData.amount < 0) {
+      toast.error("Amount must be a valid number");
+      return;
+    }
 
 
-    toast.success("Leaving request added successfully!");
-  } catch (error) {
-    console.error("Submit error:", error);
-    toast.error("Something went wrong: " + error.message);
-  } finally {
+    try {
+      setSubmitting(true);
 
-    setSubmitting(false);
-  }
-};
+      const result = await submitLeavingRequest(selectedItem, formData);
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to submit leaving request");
+      }
+
+      // ✅ Reset form
+      setFormData({
+        dateOfLeaving: "",
+        reasonOfLeaving: "",
+        typeOfLeave: "",
+        mobileNumber: "",
+        lastWorkingDate: "",
+        workingDays: "",
+        amount: ""
+      });
+
+      // ✅ Close modal & clear selected employee
+      setShowModal(false);
+      setSelectedItem(null);
+      setSelectedEmployee(null);
+      setSearchTerm("");
+      setUiMessage(null);
+      setEmployeeCode("");
+
+      // ✅ LOAD HISTORY FROM DB (without full page loading spinner)
+      await loadLeavingHistory(false);
+
+      // ✅ SWITCH TAB
+      setActiveTab("history");
+
+
+      toast.success("Leaving request added successfully!");
+    } catch (error) {
+      console.error("Submit error:", error);
+      toast.error("Something went wrong: " + error.message);
+    } finally {
+
+      setSubmitting(false);
+    }
+  };
 
 
   // Loading state
@@ -279,7 +298,7 @@ const handleSubmit = async (e) => {
           <div className="p-6 text-center">
             <div className="text-red-500 text-xl mb-4">Error Loading Data</div>
             <p className="text-gray-600 mb-4">{error}</p>
-            <button 
+            <button
               onClick={loadLeavingHistory}
               className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
             >
@@ -334,14 +353,13 @@ const handleSubmit = async (e) => {
           </div>
 
           {uiMessage && (
-            <div className={`p-3 border rounded-lg flex items-center gap-3 ${
-              uiMessage.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' : 
+            <div className={`p-3 border rounded-lg flex items-center gap-3 ${uiMessage.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' :
               uiMessage.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' :
-              'bg-blue-50 border-blue-200 text-blue-800'
-            }`}>
-              {uiMessage.type === 'error' ? <AlertCircle size={18} /> : 
-               uiMessage.type === 'success' ? <CheckCircle size={18} /> : 
-               <AlertCircle size={18} className="text-blue-500" />}
+                'bg-blue-50 border-blue-200 text-blue-800'
+              }`}>
+              {uiMessage.type === 'error' ? <AlertCircle size={18} /> :
+                uiMessage.type === 'success' ? <CheckCircle size={18} /> :
+                  <AlertCircle size={18} className="text-blue-500" />}
               <p className="text-sm">
                 <span className="font-medium">{uiMessage.type.charAt(0).toUpperCase() + uiMessage.type.slice(1)}:</span> {uiMessage.text}
               </p>
@@ -372,22 +390,20 @@ const handleSubmit = async (e) => {
         <div className="border-b border-gray-300">
           <nav className="flex -mb-px">
             <button
-              className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                activeTab === 'pending'
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === 'pending'
+                ? 'border-indigo-500 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
               onClick={() => setActiveTab('pending')}
             >
               <Clock size={16} className="inline mr-2" />
               Pending ({selectedEmployee ? 1 : 0})
             </button>
             <button
-              className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                activeTab === 'history'
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === 'history'
+                ? 'border-indigo-500 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
               onClick={() => setActiveTab('history')}
             >
               <CheckCircle size={16} className="inline mr-2" />
@@ -398,89 +414,95 @@ const handleSubmit = async (e) => {
 
         {/* Tab Content */}
         <div className="p-6">
-{activeTab === "pending" && (
-  <div className="overflow-x-auto">
+          {activeTab === "pending" && (
+            <div className="overflow-x-auto">
 
-    {/* 🔹 Empty state (no employee searched yet) */}
-    {!selectedEmployee && (
-      <div className="flex items-center justify-center py-16">
-        <p className="text-sm text-gray-500">
-          Please enter an employee code above to view leaving details.
-        </p>
-      </div>
-    )}
+              {/* 🔹 Empty state (no employee searched yet) */}
+              {!selectedEmployee && (
+                <div className="flex items-center justify-center py-16">
+                  <p className="text-sm text-gray-500">
+                    Please enter an employee code above to view leaving details.
+                  </p>
+                </div>
+              )}
 
-    {/* 🔹 Employee found (single-row table) */}
-    {selectedEmployee && (
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-              Action
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-              Serial No
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-              Name
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-              Father Name
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-              Date Of Joining
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-              Designation
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-              Department
-            </th>
-          </tr>
-        </thead>
+              {/* 🔹 Employee found (single-row table) */}
+              {selectedEmployee && (
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Action
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Timestamp
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Serial No
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Name
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Father Name
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Date Of Joining
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Designation
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Department
+                      </th>
+                    </tr>
+                  </thead>
 
-        <tbody className="bg-white divide-y divide-gray-200">
-          <tr className="hover:bg-gray-50">
-            <td className="px-6 py-4 whitespace-nowrap">
-              <button
-                onClick={() => handleLeavingClick(selectedEmployee)}
-                className="px-3 py-1 bg-indigo-700 text-white rounded-md text-sm hover:bg-indigo-800"
-              >
-                Leaving
-              </button>
-            </td>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    <tr className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <button
+                          onClick={() => handleLeavingClick(selectedEmployee)}
+                          className="px-3 py-1 bg-indigo-700 text-white rounded-md text-sm hover:bg-indigo-800"
+                        >
+                          Leaving
+                        </button>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {formatDateTime(selectedEmployee.timestamp)}
+                      </td>
 
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-              {selectedEmployee.employeeNo || "—"}
-            </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {selectedEmployee.employeeNo || "—"}
+                      </td>
 
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-              {selectedEmployee.candidateName || "—"}
-            </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {selectedEmployee.candidateName || "—"}
+                      </td>
 
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-              {selectedEmployee.fatherName || "—"}
-            </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {selectedEmployee.fatherName || "—"}
+                      </td>
 
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-              {selectedEmployee.dateOfJoining
-                ? formatDOB(selectedEmployee.dateOfJoining)
-                : "—"}
-            </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {selectedEmployee.dateOfJoining
+                          ? formatDOB(selectedEmployee.dateOfJoining)
+                          : "—"}
+                      </td>
 
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-              {selectedEmployee.designation || "—"}
-            </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {selectedEmployee.designation || "—"}
+                      </td>
 
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-              {selectedEmployee.department || "—"}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    )}
-  </div>
-)}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {selectedEmployee.department || "—"}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
 
 
 
@@ -490,6 +512,7 @@ const handleSubmit = async (e) => {
                 <thead className="bg-gray-100">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Serial Number</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Of Joining</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Of Leaving</th>
@@ -505,6 +528,7 @@ const handleSubmit = async (e) => {
                     filteredHistoryData.map((item, index) => (
                       <tr key={index} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.employeeId}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDateTime(item.timestamp)}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.name}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {item.dateOfJoining ? formatDOB(item.dateOfJoining) : '-'}
@@ -521,7 +545,7 @@ const handleSubmit = async (e) => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="7" className="px-6 py-12 text-center">
+                      <td colSpan="10" className="px-6 py-12 text-center">
                         <p className="text-gray-500">No leaving history found.</p>
                       </td>
                     </tr>
@@ -553,7 +577,7 @@ const handleSubmit = async (e) => {
                   className="w-full border border-gray-500 rounded-md px-3 py-2 bg-gray-100 text-gray-700"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Employee Code</label>
                 <input
@@ -563,7 +587,7 @@ const handleSubmit = async (e) => {
                   className="w-full border border-gray-500 rounded-md px-3 py-2 bg-gray-100 text-gray-700"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
                 <input
@@ -573,7 +597,7 @@ const handleSubmit = async (e) => {
                   className="w-full border border-gray-500 rounded-md px-3 py-2 bg-gray-100 text-gray-700"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">Mobile Number *</label>
                 <input
@@ -586,7 +610,7 @@ const handleSubmit = async (e) => {
                   required
                 />
               </div>
-              
+
               <div>
                 <select
                   name="typeOfLeave"
@@ -600,7 +624,7 @@ const handleSubmit = async (e) => {
                   <option value="Termination">Termination</option>
                 </select>
               </div>
-              
+
               {formData.typeOfLeave === 'Resignation' && (
                 <>
                   <div>
@@ -614,7 +638,7 @@ const handleSubmit = async (e) => {
                       required
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Reason Of Leaving *</label>
                     <textarea
@@ -628,7 +652,7 @@ const handleSubmit = async (e) => {
                   </div>
                 </>
               )}
-              
+
               {formData.typeOfLeave === 'Termination' && (
                 <>
                   <div>
@@ -642,7 +666,7 @@ const handleSubmit = async (e) => {
                       required
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Reason Of Termination *</label>
                     <textarea
@@ -656,7 +680,7 @@ const handleSubmit = async (e) => {
                   </div>
                 </>
               )}
-              
+
               {formData.typeOfLeave && (
                 <div>
                   <label className="block text-sm font-medium text-gray-500 mb-1">Last Working Date *</label>
@@ -684,7 +708,7 @@ const handleSubmit = async (e) => {
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">Amount (₹) *</label>
                 <input
@@ -699,7 +723,7 @@ const handleSubmit = async (e) => {
                   required
                 />
               </div>
-            
+
               <div className="flex justify-end space-x-2 pt-4 sticky bottom-0 bg-white border-t border-gray-100 -mx-6 px-6 py-4 mt-6">
                 <button
                   type="button"
@@ -710,17 +734,16 @@ const handleSubmit = async (e) => {
                 </button>
                 <button
                   type="submit"
-                  className={`px-4 py-2 text-white bg-indigo-700 rounded-md hover:bg-indigo-800 min-h-[42px] flex items-center justify-center ${
-                    submitting ? 'opacity-90 cursor-not-allowed' : ''
-                  }`}
+                  className={`px-4 py-2 text-white bg-indigo-700 rounded-md hover:bg-indigo-800 min-h-[42px] flex items-center justify-center ${submitting ? 'opacity-90 cursor-not-allowed' : ''
+                    }`}
                   disabled={submitting}
                 >
                   {submitting ? (
                     <div className="flex items-center">
-                      <svg 
-                        className="animate-spin h-4 w-4 text-white mr-2" 
-                        xmlns="http://www.w3.org/2000/svg" 
-                        fill="none" 
+                      <svg
+                        className="animate-spin h-4 w-4 text-white mr-2"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
                         viewBox="0 0 24 24"
                       >
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

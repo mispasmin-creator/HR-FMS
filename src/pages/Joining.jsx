@@ -207,6 +207,7 @@ const Joining = () => {
         actualJoiningDate: item.actual || "",
         designation: item.applying_for_post || "",
         timestamp: item.created_at,
+        firm_name: item.firm_name || "",
       }));
 
       // Process history data to match component expects
@@ -237,8 +238,11 @@ const Joining = () => {
           offerLetter: item.offer_letter,
           incrementLetter: item.increment_letter,
           paySlip: item.pay_slip,
-          resignationLetter: item.resignation_letter,
+          currentBankAccountNo: item.current_bank_account_no,
+          currentBankIfsc: item.current_bank_ifsc,
+          branchName: item.branch_name,
           timestamp: item.created_at,
+          firm_name: item.joining_company_name || "",
         }));
 
       setJoiningData(processedPendingData);
@@ -309,7 +313,7 @@ const Joining = () => {
       highestQualification: "",
       pfEligible: "",
       esicEligible: "",
-      joiningCompanyName: "",
+      joiningCompanyName: item.firm_name || "",
       emailToBeIssue: "",
       issueMobile: "",
       issueLaptop: "",
@@ -616,8 +620,8 @@ const Joining = () => {
         family_mobile_no: joiningFormData.familyMobileNo,
         relationship_with_family: joiningFormData.relationshipWithFamily,
         past_pf_id: joiningFormData.pastPfId,
-        current_bank_account_no: joiningFormData.currentBankAccountNo,
-        current_bank_ifsc: joiningFormData.currentBankIfsc,
+        current_bank_account_no: joiningFormData.currentBankAc,
+        current_bank_ifsc: joiningFormData.ifscCode,
         branch_name: joiningFormData.branchName,
         blood_group: joiningFormData.bloodGroup,
         identification_marks: joiningFormData.identificationMarks,
@@ -684,7 +688,8 @@ const Joining = () => {
     const matchesSearch =
       item.candidateName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.applyingForPost?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.candidatePhone?.toLowerCase().includes(searchTerm.toLowerCase());
+      item.candidatePhone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.firm_name?.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesSearch;
   });
 
@@ -692,7 +697,8 @@ const Joining = () => {
     const matchesSearch =
       item.candidateName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.applyingForPost?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.candidatePhone?.toLowerCase().includes(searchTerm.toLowerCase());
+      item.candidatePhone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.firm_name?.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesSearch;
   });
 
@@ -729,8 +735,8 @@ const Joining = () => {
           <nav className="flex -mb-px">
             <button
               className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "pending"
-                  ? "border-indigo-500 text-indigo-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                ? "border-indigo-500 text-indigo-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               onClick={() => setActiveTab("pending")}
             >
@@ -739,8 +745,8 @@ const Joining = () => {
             </button>
             <button
               className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "history"
-                  ? "border-indigo-500 text-indigo-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                ? "border-indigo-500 text-indigo-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               onClick={() => setActiveTab("history")}
             >
@@ -758,13 +764,16 @@ const Joining = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Timestamp
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Action
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      Timestamp
+                    </th>
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Indent No.
+                    </th>
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      Firm Name
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Candidate Enquiry No.
@@ -830,9 +839,6 @@ const Joining = () => {
                   ) : (
                     filteredJoiningData.map((item) => (
                       <tr key={item.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                          {formatDateForDisplay(item.timestamp)}
-                        </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <button
                             onClick={() => handleJoiningClick(item)}
@@ -842,7 +848,13 @@ const Joining = () => {
                           </button>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {formatDateForDisplay(item.timestamp)}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.indentNo || "-"}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {item.firm_name || "-"}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.candidateEnquiryNo || "-"}
@@ -909,10 +921,10 @@ const Joining = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Timestamp
+                      Candidate Enquiry No.
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Candidate Enquiry No.
+                      Timestamp
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Candidate Name
@@ -942,6 +954,9 @@ const Joining = () => {
                       Resignation Letter
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      Bank Details
+                    </th>
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Status
                     </th>
                   </tr>
@@ -949,7 +964,7 @@ const Joining = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {tableLoading ? (
                     <tr>
-                      <td colSpan="12" className="px-6 py-12 text-center">
+                      <td colSpan="13" className="px-6 py-12 text-center">
                         <div className="flex flex-col items-center justify-center">
                           <div className="w-6 h-6 mb-2 border-4 border-indigo-500 border-dashed rounded-full animate-spin"></div>
                           <span className="text-sm text-gray-600">
@@ -960,7 +975,7 @@ const Joining = () => {
                     </tr>
                   ) : error ? (
                     <tr>
-                      <td colSpan="12" className="px-6 py-12 text-center">
+                      <td colSpan="13" className="px-6 py-12 text-center">
                         <p className="text-red-500">Error: {error}</p>
                         <button
                           onClick={fetchJoiningData}
@@ -972,7 +987,7 @@ const Joining = () => {
                     </tr>
                   ) : filteredHistoryData.length === 0 ? (
                     <tr>
-                      <td colSpan="12" className="px-6 py-12 text-center">
+                      <td colSpan="13" className="px-6 py-12 text-center">
                         <p className="text-gray-500">
                           No history records found.
                         </p>
@@ -982,10 +997,10 @@ const Joining = () => {
                     filteredHistoryData.map((item) => (
                       <tr key={item.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                          {formatDateForDisplay(item.timestamp)}
+                          {item.candidateEnquiryNo || "-"}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                          {item.candidateEnquiryNo || "-"}
+                          {formatDateForDisplay(item.timestamp)}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.candidateName || "-"}
@@ -1065,6 +1080,10 @@ const Joining = () => {
                           ) : (
                             "-"
                           )}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          <div className="font-medium">A/C: {item.currentBankAccountNo || "-"}</div>
+                          <div className="text-xs text-gray-500">IFSC: {item.currentBankIfsc || "-"}</div>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           <span className="px-2 py-1 text-xs text-green-800 bg-green-100 rounded-full">
@@ -1366,6 +1385,18 @@ const Joining = () => {
                     name="highestQualification"
                     value={joiningFormData.highestQualification}
                     onChange={handleJoiningInputChange}
+                    className="w-full px-3 py-2 text-gray-700 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-gray-700">
+                    Firm Name *
+                  </label>
+                  <input
+                    name="joiningCompanyName"
+                    value={joiningFormData.joiningCompanyName}
+                    onChange={handleJoiningInputChange}
+                    required
                     className="w-full px-3 py-2 text-gray-700 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>

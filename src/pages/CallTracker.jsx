@@ -304,6 +304,7 @@ const CallTracker = () => {
               presentAddress: enquiry.present_address || "",
               aadharNo: enquiry.aadhar_no || "",
               designation: enquiry.applying_for_post || "",
+              createdAt: enquiry.created_at || "",
             };
           });
 
@@ -364,6 +365,17 @@ const CallTracker = () => {
   }, [fetchAllData]);
 
   const pendingData = enquiryData;
+
+  const formatDateTime = (dateString) => {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    return date.toLocaleString("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
 
   // Helper function to format DD/MM/YYYY dates
   const formatDateForDisplay = (dateString) => {
@@ -454,7 +466,7 @@ const CallTracker = () => {
       setSubmitting(false);
       return;
     }
-    if ((formData.status === "Follow-up" ||  formData.status === "Interview" || formData.status === "Negotiation" ||  formData.status === "On Hold") && !formData.nextDate) {
+    if ((formData.status === "Follow-up" || formData.status === "Interview" || formData.status === "Negotiation" || formData.status === "On Hold") && !formData.nextDate) {
       toast.error("Select the Date");
       setSubmitting(false);
       return;
@@ -598,8 +610,8 @@ const CallTracker = () => {
           <nav className="flex -mb-px">
             <button
               className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "pending"
-                  ? "border-indigo-500 text-indigo-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                ? "border-indigo-500 text-indigo-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               onClick={() => setActiveTab("pending")}
             >
@@ -608,8 +620,8 @@ const CallTracker = () => {
             </button>
             <button
               className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "followup"
-                  ? "border-green-500 text-green-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                ? "border-green-500 text-green-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               onClick={() => setActiveTab("followup")}
             >
@@ -618,8 +630,8 @@ const CallTracker = () => {
             </button>
             <button
               className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "interview"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               onClick={() => setActiveTab("interview")}
             >
@@ -628,8 +640,8 @@ const CallTracker = () => {
             </button>
             <button
               className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "onhold"
-                  ? "border-yellow-500 text-yellow-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                ? "border-yellow-500 text-yellow-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               onClick={() => setActiveTab("onhold")}
             >
@@ -638,8 +650,8 @@ const CallTracker = () => {
             </button>
             <button
               className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "history"
-                  ? "border-purple-500 text-purple-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                ? "border-purple-500 text-purple-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               onClick={() => setActiveTab("history")}
             >
@@ -658,6 +670,9 @@ const CallTracker = () => {
                   <tr>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Action
+                    </th>
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      Timestamp
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Indent No.
@@ -695,7 +710,7 @@ const CallTracker = () => {
                   {!dataLoaded && filteredPendingData.length === 0 ? (
                     <tr>
                       <td
-                        colSpan="11"
+                        colSpan="12"
                         className="px-6 py-4 text-center text-gray-500"
                       >
                         Loading data...
@@ -703,7 +718,7 @@ const CallTracker = () => {
                     </tr>
                   ) : filteredPendingData.length === 0 ? (
                     <tr>
-                      <td colSpan="11" className="px-6 py-12 text-center">
+                      <td colSpan="12" className="px-6 py-12 text-center">
                         <p className="text-gray-500">No pending calls found.</p>
                       </td>
                     </tr>
@@ -717,6 +732,9 @@ const CallTracker = () => {
                           >
                             Call
                           </button>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {formatDateTime(item.createdAt)}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.indentNo}
@@ -787,6 +805,9 @@ const CallTracker = () => {
                       Action
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      Timestamp
+                    </th>
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Indent No
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
@@ -800,9 +821,6 @@ const CallTracker = () => {
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Next Date
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Timestamp
                     </th>
                   </tr>
                 </thead>
@@ -878,6 +896,9 @@ const CallTracker = () => {
                           </button>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {item.timestamp || "-"}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.indentNo}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
@@ -893,9 +914,6 @@ const CallTracker = () => {
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.nextDate || "-"}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                          {item.timestamp || "-"}
                         </td>
                       </tr>
                     ))
@@ -914,6 +932,9 @@ const CallTracker = () => {
                       Action
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      Timestamp
+                    </th>
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Indent No
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
@@ -927,9 +948,6 @@ const CallTracker = () => {
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Schedule Date
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Timestamp
                     </th>
                   </tr>
                 </thead>
@@ -1005,6 +1023,9 @@ const CallTracker = () => {
                           </button>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {item.timestamp || "-"}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.indentNo}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
@@ -1020,9 +1041,6 @@ const CallTracker = () => {
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.nextDate || "-"}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                          {item.timestamp || "-"}
                         </td>
                       </tr>
                     ))
@@ -1041,6 +1059,9 @@ const CallTracker = () => {
                       Action
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      Timestamp
+                    </th>
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Indent No
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
@@ -1054,9 +1075,6 @@ const CallTracker = () => {
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       ReCalling Date
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Timestamp
                     </th>
                   </tr>
                 </thead>
@@ -1130,6 +1148,9 @@ const CallTracker = () => {
                           </button>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {item.timestamp || "-"}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.indentNo}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
@@ -1145,9 +1166,6 @@ const CallTracker = () => {
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.nextDate || "-"}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                          {item.timestamp || "-"}
                         </td>
                       </tr>
                     ))
@@ -1166,6 +1184,9 @@ const CallTracker = () => {
                       Indent No
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      Timestamp
+                    </th>
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Enquiry No
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
@@ -1176,9 +1197,6 @@ const CallTracker = () => {
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Date
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Timestamp
                     </th>
                   </tr>
                 </thead>
@@ -1205,17 +1223,20 @@ const CallTracker = () => {
                           {item.indentNo}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {item.timestamp || "-"}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.enquiryNo}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           <span
                             className={`px-2 py-1 text-xs rounded-full ${item.status === "Joining"
-                                ? "bg-green-100 text-green-800"
-                                : item.status === "Reject"
-                                  ? "bg-red-100 text-red-800"
-                                  : item.status === "Negotiation"
-                                    ? "bg-purple-100 text-purple-800"
-                                    : "bg-gray-100 text-gray-800"
+                              ? "bg-green-100 text-green-800"
+                              : item.status === "Reject"
+                                ? "bg-red-100 text-red-800"
+                                : item.status === "Negotiation"
+                                  ? "bg-purple-100 text-purple-800"
+                                  : "bg-gray-100 text-gray-800"
                               }`}
                           >
                             {item.status}
@@ -1226,9 +1247,6 @@ const CallTracker = () => {
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.nextDate || "-"}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                          {item.timestamp || "-"}
                         </td>
                       </tr>
                     ))

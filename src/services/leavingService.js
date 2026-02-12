@@ -227,6 +227,7 @@ export const fetchLeavingHistory = async () => {
       workingDays: item.working_days,
       reasonOfLeaving: item.reason_of_leaving,
       paymentLink: item.payment_link,
+      timestamp: item.created_at,
     }));
 
     return { success: true, history };

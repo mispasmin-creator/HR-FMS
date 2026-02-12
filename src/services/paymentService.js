@@ -77,6 +77,7 @@ export const fetchPendingLeaving = async () => {
           item.current_bank_account_no ||
           item.bank_account ||
           "",
+        timestamp: item.created_at,
       }))
       .filter(
         (r) =>

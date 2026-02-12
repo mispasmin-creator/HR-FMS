@@ -103,6 +103,9 @@ export const fetchAfterJoiningData = async () => {
         identificationMarks: item.identification_marks || "",
         salaryAmount: item.salary || "",
 
+        // metadata
+        created_at: item.created_at,
+
         // leaving status
         leavingDate: item.actual_leaving_date || null,
       };

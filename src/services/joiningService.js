@@ -99,12 +99,17 @@ export const createJoiningRecord = async (joiningData) => {
  */
 export const fetchPendingJoiningCandidates = async () => {
   try {
-    // First, get all enquiries with "Joining" status
+    // First, get all enquiries with "Joining" status and their indent details
     const { data: enquiries, error: enquiryError } = await supabase
       .from("enquiries")
-      .select("*")
+      .select(`
+        *,
+        indents:indent_number (
+          company
+        )
+      `)
       .eq("track_status", "Joining")
-      .order("created_at", { ascending: false }); 
+      .order("created_at", { ascending: false });
 
     if (enquiryError) throw enquiryError;
 
@@ -122,7 +127,10 @@ export const fetchPendingJoiningCandidates = async () => {
     // Filter out enquiries that already have joining records
     const pendingCandidates = enquiries.filter(
       (e) => !joinedEnquiryNumbers.has(e.candidate_enquiry_number),
-    );
+    ).map(e => ({
+      ...e,
+      firm_name: e.indents?.company || ""
+    }));
 
     return { success: true, data: pendingCandidates };
   } catch (error) {

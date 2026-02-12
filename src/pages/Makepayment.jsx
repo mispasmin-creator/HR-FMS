@@ -98,7 +98,8 @@ const MakePayment = () => {
       joiningDate: item.date_of_joining || item.joiningDate || "",
       aadharNo: item.aadhar || item.aadhar_no || item.aadharNo || "",
       companyName: item.companyName || "",
-      workingDays: item.workingDays || ""
+      workingDays: item.workingDays || "",
+      timestamp: item.timestamp || item.created_at || ""
     };
   };
 
@@ -282,6 +283,24 @@ Amount: ₹${(Number(item.amount) || 0).toLocaleString("en-IN")} only.
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  const formatDateTime = (dateString) => {
+    if (!dateString) return "-";
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+      return date.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+    } catch (e) {
+      return dateString;
+    }
   };
 
   const formatDateForDisplay = (dateString) => {
@@ -605,6 +624,9 @@ Amount: ₹${(Number(item.amount) || 0).toLocaleString("en-IN")} only.
                         Select
                       </th>
                       <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-blue-900 uppercase bg-blue-100">
+                        Timestamp
+                      </th>
+                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-blue-900 uppercase bg-blue-100">
                         Employee ID
                       </th>
                       <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-blue-900 uppercase bg-blue-100">
@@ -654,6 +676,9 @@ Amount: ₹${(Number(item.amount) || 0).toLocaleString("en-IN")} only.
                               onChange={() => handlePaymentToggle(item.id)}
                               className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                             />
+                          </td>
+                          <td className="px-4 py-4 text-sm font-medium text-gray-900 whitespace-nowrap">
+                            {formatDateTime(item.timestamp)}
                           </td>
                           <td className="px-4 py-4 text-sm font-medium text-gray-900 whitespace-nowrap">
                             {item.employeeId || "N/A"}

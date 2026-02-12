@@ -46,6 +46,24 @@ const formatTableDate = (dateString) => {
   return dateString;
 };
 
+const formatDateTime = (dateString) => {
+  if (!dateString) return "-";
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    return date.toLocaleString("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  } catch (e) {
+    return dateString;
+  }
+};
+
 const SocialSite = () => {
   const [activeTab, setActiveTab] = useState("pending");
   const [searchTerm, setSearchTerm] = useState("");
@@ -120,9 +138,9 @@ const SocialSite = () => {
       socialSiteTypes:
         item.which && item.which !== "No"
           ? item.which
-              .split(",")
-              .map((s) => s.trim())
-              .filter((s) => s)
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s) => s)
           : [],
       jobDescriptionImage: item.job_description_image || null,
     });
@@ -179,7 +197,7 @@ const SocialSite = () => {
 
       // cleanup previous object URL if any
       if (objectUrl) {
-        try { URL.revokeObjectURL(objectUrl); } catch (e) {}
+        try { URL.revokeObjectURL(objectUrl); } catch (e) { }
         setObjectUrl(null);
       }
 
@@ -207,7 +225,7 @@ const SocialSite = () => {
     setImageFile(null);
     // revoke object url if created
     if (objectUrl) {
-      try { URL.revokeObjectURL(objectUrl); } catch (e) {}
+      try { URL.revokeObjectURL(objectUrl); } catch (e) { }
       setObjectUrl(null);
     }
     setImagePreview(null);
@@ -236,7 +254,7 @@ const SocialSite = () => {
         const filePath = `${selectedItem.indent_number}/${fileName}`;
 
         const uploadResult = await uploadSocialSiteImage(imageFile, filePath);
-        
+
         if (!uploadResult.success) {
           throw new Error(uploadResult.error || "Failed to upload image");
         }
@@ -316,22 +334,20 @@ const SocialSite = () => {
         <div className="border-b border-gray-300 border-opacity-20">
           <nav className="flex -mb-px">
             <button
-              className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                activeTab === "pending"
+              className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "pending"
                   ? "border-indigo-500 text-indigo-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
+                }`}
               onClick={() => setActiveTab("pending")}
             >
               <Clock size={16} className="inline mr-2" />
               Pending ({filteredPendingData.length})
             </button>
             <button
-              className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                activeTab === "history"
+              className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "history"
                   ? "border-indigo-500 text-indigo-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
+                }`}
               onClick={() => setActiveTab("history")}
             >
               <CheckCircle size={16} className="inline mr-2" />
@@ -349,6 +365,9 @@ const SocialSite = () => {
                   <tr>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Action
+                    </th>
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      Timestamp
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Indent Number
@@ -400,16 +419,18 @@ const SocialSite = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <button
                             onClick={() => handleActionClick(item)}
-                            className={`px-3 py-1 text-white rounded-md hover:bg-opacity-90 text-sm ${
-                              item.social_site_post === "Yes"
+                            className={`px-3 py-1 text-white rounded-md hover:bg-opacity-90 text-sm ${item.social_site_post === "Yes"
                                 ? "bg-green-600"
                                 : item.social_site_post === "No"
-                                ? "bg-red-600"
-                                : "bg-indigo-700"
-                            }`}
+                                  ? "bg-red-600"
+                                  : "bg-indigo-700"
+                              }`}
                           >
                             {item.social_site_post ? "Edit" : "Update"}
                           </button>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {formatDateTime(item.created_at)}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.indent_number}
@@ -438,11 +459,10 @@ const SocialSite = () => {
                           {item.social_site_post ? (
                             <div className="flex items-center">
                               <span
-                                className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                                  item.social_site_post === "Yes"
+                                className={`px-2 py-1 text-xs font-semibold rounded-full ${item.social_site_post === "Yes"
                                     ? "bg-green-100 text-green-800"
                                     : "bg-red-100 text-red-800"
-                                }`}
+                                  }`}
                               >
                                 {item.social_site_post}
                               </span>
@@ -471,6 +491,9 @@ const SocialSite = () => {
                   <tr>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Indent Number
+                    </th>
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      Timestamp
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Company
@@ -526,6 +549,9 @@ const SocialSite = () => {
                           {item.indent_number}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {formatDateTime(item.created_at)}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {item.company}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
@@ -542,11 +568,10 @@ const SocialSite = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
-                            className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                              item.social_site_post === "Yes"
+                            className={`px-2 py-1 text-xs font-semibold rounded-full ${item.social_site_post === "Yes"
                                 ? "bg-green-100 text-green-800"
                                 : "bg-red-100 text-red-800"
-                            }`}
+                              }`}
                           >
                             {item.social_site_post}
                           </span>
@@ -694,7 +719,7 @@ const SocialSite = () => {
                         <label className="block mb-1 text-sm font-medium text-gray-700">
                           Job Description Image
                         </label>
-                        
+
                         {/* Image/PDF Preview */}
                         {imagePreview && previewType === 'image' && (
                           <div className="relative mb-3">
@@ -759,7 +784,7 @@ const SocialSite = () => {
                             />
                           </label>
                         </div>
-                        
+
                         <p className="mt-1 text-xs text-gray-500">
                           Upload an image containing the job description details that were posted on social sites.
                         </p>

@@ -30,6 +30,7 @@ export const fetchAfterLeavingProcessData = async () => {
       id: item.id,
       serialNumber: item.serial_no,
       employeeCode: item.employee_code || "",
+      timestamp: item.created_at,
       name: item.name_as_per_aadhar || item.enquiries?.candidate_name || "",
       fatherName: item.father_name || item.enquiries?.father_name || "",
       dateOfJoining: item.date_of_joining,

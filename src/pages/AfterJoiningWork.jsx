@@ -153,6 +153,24 @@ const AfterJoiningWork = () => {
     }
   };
 
+  const formatDateTime = (dateString) => {
+    if (!dateString) return "-";
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+      return date.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+    } catch (e) {
+      return dateString;
+    }
+  };
+
   // Fetch assets data from Supabase (consolidated into joining table)
   const fetchAssetsData = useCallback(
     async (joiningNo) => {
@@ -490,8 +508,8 @@ const AfterJoiningWork = () => {
           <nav className="flex -mb-px">
             <button
               className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "pending"
-                  ? "border-indigo-500 text-indigo-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                ? "border-indigo-500 text-indigo-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               onClick={() => setActiveTab("pending")}
             >
@@ -500,8 +518,8 @@ const AfterJoiningWork = () => {
             </button>
             <button
               className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "history"
-                  ? "border-indigo-500 text-indigo-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                ? "border-indigo-500 text-indigo-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               onClick={() => setActiveTab("history")}
             >
@@ -519,6 +537,9 @@ const AfterJoiningWork = () => {
                   <tr>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Action
+                    </th>
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      Timestamp
                     </th>
                     <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                       Serial Number
@@ -549,7 +570,7 @@ const AfterJoiningWork = () => {
                 <tbody className="divide-y divide-white">
                   {error ? (
                     <tr>
-                      <td colSpan="8" className="px-6 py-12 text-center">
+                      <td colSpan="10" className="px-6 py-12 text-center">
                         <p className="text-red-500">Error: {error}</p>
                         <button
                           onClick={() => fetchInitialData()}
@@ -569,6 +590,9 @@ const AfterJoiningWork = () => {
                           >
                             Process
                           </button>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
+                          {formatDateTime(item.created_at)}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
                           {item.joiningNo || "N/A"}
@@ -617,6 +641,9 @@ const AfterJoiningWork = () => {
                   <tr>
                     <th className="px-4 py-2 text-xs font-semibold text-gray-600 uppercase">
                       Serial Number
+                    </th>
+                    <th className="px-4 py-2 text-xs font-semibold text-gray-600 uppercase">
+                      Timestamp
                     </th>
                     <th className="px-4 py-2 text-xs font-semibold text-gray-600 uppercase">
                       Employee Code
@@ -739,7 +766,7 @@ const AfterJoiningWork = () => {
                   {filteredHistoryData.length === 0 ? (
                     <tr>
                       <td
-                        colSpan="38"
+                        colSpan="40"
                         className="px-6 py-12 text-center text-gray-500"
                       >
                         No history found.
@@ -750,6 +777,9 @@ const AfterJoiningWork = () => {
                       <tr key={index} className="hover:bg-gray-50">
                         <td className="px-4 py-2 text-sm text-gray-700">
                           {item.joiningNo}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-700">
+                          {formatDateTime(item.created_at)}
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-700">
                           {item.employeeCode}
