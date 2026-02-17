@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Calendar, Filter, MoreVertical } from 'lucide-react';
+import { Search, Calendar, Filter, MoreVertical, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 const Payroll = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -79,45 +80,90 @@ const Payroll = () => {
   };
 
   // Filter data based on search term and selected period
-   const filteredData = payrollData.filter((item) => {
+  const filteredData = payrollData.filter((item) => {
     // Filter by search term (emp code, name, designation, year, month)
-    const matchesSearch = 
+    const matchesSearch =
       item.employeeCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.designation.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.year.toString().includes(searchTerm) ||
       item.month.toString().toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     // Filter by selected period (year-month)
     let matchesPeriod = true;
     if (selectedPeriod) {
       const [selectedYear, selectedMonthNum] = selectedPeriod.split('-');
-      
+
       // Convert numeric month to full month name
       const monthNames = [
         'January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'
       ];
       const selectedMonthName = monthNames[parseInt(selectedMonthNum) - 1];
-      
+
       // Match with year in column P and month name in column Q
-      matchesPeriod = item.year.toString() === selectedYear && 
-                     item.month.toString() === selectedMonthName;
+      matchesPeriod = item.year.toString() === selectedYear &&
+        item.month.toString() === selectedMonthName;
     }
-    
+
     return matchesSearch && matchesPeriod;
   });
+
+  const handleExportExcel = () => {
+    if (filteredData.length === 0) {
+      showNotification("No data to export", "error");
+      return;
+    }
+
+    try {
+      // Prepare data for export with proper column names
+      const exportData = filteredData.map((item) => ({
+        "S.No": item.serialNo,
+        "Employee Code": item.employeeCode,
+        "Employee Name": item.employeeName,
+        Designation: item.designation,
+        "Days Present": item.daysPresent,
+        "Total Actual": item.totalActual,
+        Basic: item.basic,
+        Conveyance: item.conveyance,
+        HRA: item.hra,
+        "Medical Allowance": item.medicalAllowance,
+        "Special Allowance": item.specialAllowance,
+        "Other Allowances": item.otherAllowances,
+        Loan: item.loan,
+        "Additional Salary": item.additionalSalary,
+        "To Be Paid After PF": item.toBePaidAfterPF,
+        Year: item.year,
+        Month: item.month,
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Payroll");
+
+      // Generate filename based on selected period
+      let fileName = "Payroll_Data.xlsx";
+      if (selectedPeriod) {
+        fileName = `Payroll_${selectedPeriod}.xlsx`;
+      }
+
+      XLSX.writeFile(workbook, fileName);
+      showNotification("Excel file downloaded successfully");
+    } catch (err) {
+      showNotification("Failed to export Excel file", "error");
+      console.error(err);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 p-4 md:p-6">
       {/* Notification */}
       {notification && (
         <div
-          className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 ${
-            notification.type === "error"
-              ? "bg-red-100 text-red-800 border border-red-300"
-              : "bg-green-100 text-green-800 border border-green-300"
-          }`}
+          className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 ${notification.type === "error"
+            ? "bg-red-100 text-red-800 border border-red-300"
+            : "bg-green-100 text-green-800 border border-green-300"
+            }`}
         >
           {notification.message}
         </div>
@@ -127,8 +173,15 @@ const Payroll = () => {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <h1 className="text-2xl md:text-3xl font-bold text-blue-900">
-            Payroll Management 
+            Payroll Management
           </h1>
+          <button
+            onClick={handleExportExcel}
+            className="group flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-xl hover:from-emerald-700 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-green-200 active:scale-95 w-fit"
+          >
+            <Download size={18} className="group-hover:translate-y-0.5 transition-transform duration-300" />
+            <span className="font-semibold tracking-wide">Export Excel</span>
+          </button>
         </div>
 
         {/* Controls Row */}
