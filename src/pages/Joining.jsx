@@ -702,6 +702,115 @@ const Joining = () => {
     return matchesSearch;
   });
 
+  // ── Export CSV ────────────────────────────────────────────────────────────
+  const exportToCSV = () => {
+    const isPending = activeTab === "pending";
+    const data = isPending ? filteredJoiningData : filteredHistoryData;
+
+    if (data.length === 0) {
+      toast.error("No data to export.");
+      return;
+    }
+
+    let headers, rows;
+
+    if (isPending) {
+      headers = [
+        "Timestamp",
+        "Indent No.",
+        "Firm Name",
+        "Candidate Enquiry No.",
+        "Applying For Post",
+        "Department",
+        "Candidate Name",
+        "Phone",
+        "Email",
+        "Aadhar No.",
+        "Present Address",
+        "Planned Date",
+        "Actual Joining Date",
+      ];
+      rows = data.map((item) => [
+        formatDateForDisplay(item.timestamp),
+        item.indentNo ?? "",
+        item.firm_name ?? "",
+        item.candidateEnquiryNo ?? "",
+        item.applyingForPost ?? "",
+        item.department ?? "",
+        item.candidateName ?? "",
+        item.candidatePhone ?? "",
+        item.candidateEmail ?? "",
+        item.aadharNo ?? "",
+        item.presentAddress ?? "",
+        formatDateForDisplay(item.plannedDate),
+        formatDateForDisplay(item.actualJoiningDate),
+      ]);
+    } else {
+      headers = [
+        "Serial No.",
+        "Timestamp",
+        "Candidate Enquiry No.",
+        "Firm Name / Company",
+        "Candidate Name",
+        "Applying For Post",
+        "Designation",
+        "Department",
+        "Date Of Joining",
+        "Phone",
+        "Email",
+        "Aadhar No.",
+        "Present Address",
+        "Bank A/C No.",
+        "IFSC Code",
+        "Branch Name",
+        "Previous Company",
+        "Previous Company Address",
+      ];
+      rows = data.map((item) => [
+        item.serialNo ?? "",
+        formatDateForDisplay(item.timestamp),
+        item.candidateEnquiryNo ?? "",
+        item.firm_name ?? "",
+        item.candidateName ?? "",
+        item.applyingForPost ?? "",
+        item.designation ?? "",
+        item.department ?? "",
+        formatDateForDisplay(item.dateOfJoining),
+        item.candidatePhone ?? "",
+        item.candidateEmail ?? "",
+        item.aadharNo ?? "",
+        item.presentAddress ?? "",
+        item.currentBankAccountNo ?? "",
+        item.currentBankIfsc ?? "",
+        item.branchName ?? "",
+        item.previousCompanyName ?? "",
+        item.previousCompanyAddress ?? "",
+      ]);
+    }
+
+    const escape = (val) => {
+      const str = String(val ?? "");
+      return str.includes(",") || str.includes('"') || str.includes("\n")
+        ? `"${str.replace(/"/g, '""')}"`
+        : str;
+    };
+
+    const csvContent = [
+      headers.map(escape).join(","),
+      ...rows.map((row) => row.map(escape).join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const tabLabel = isPending ? "Pending" : "History";
+    link.href = url;
+    link.download = `Joining_${tabLabel}_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${tabLabel} data exported successfully!`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -727,6 +836,13 @@ const Joining = () => {
             />
           </div>
         </div>
+        <button
+          onClick={exportToCSV}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors shadow-sm"
+        >
+          <Download size={16} />
+          Export CSV
+        </button>
       </div>
 
       {/* Tabs */}

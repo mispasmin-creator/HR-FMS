@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Filter, Search, Clock, CheckCircle, X } from "lucide-react";
+import { Search, Clock, CheckCircle, X, Download } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   fetchAfterJoiningData,
@@ -208,23 +208,23 @@ const AfterJoiningWork = () => {
         salaryConfirmation: item.salaryConfirmation || "",
         salaryAmount: item.salaryAmount || "",
         reportingOfficer: item.reportingOfficer || "",
-        pf: item.pfEsic || "",
+        pf: item.pf || "",
         baseAddress: item.baseAddress || item.currentAddress || "",
         idProofCopy: null,
         joiningLetter: null,
         interviewAssessmentSheet: null,
         biometricAccess: item.punchCode ? true : false,
         punchCode: item.punchCode || "",
-        officialEmailId: item.officialEmail ? true : false,
-        emailId: item.officialEmail || "",
+        officialEmailId: item.emailId ? true : false,
+        emailId: item.emailId || "",
         emailPassword: item.emailPassword || "",
-        laptop: item.laptopDetails || "",
+        laptop: item.laptop || "",
         laptopImageUrl: item.laptopImage || "",
         laptopImage: null,
-        mobile: item.mobileName || "",
+        mobile: item.mobile || "",
         mobileImageUrl: item.mobileImage || "",
         mobileImage: null,
-        manualImageUrl: item.manualImageUrl || "",
+        manualImageUrl: item.manualImage || "",
         manualImage: null,
         assignAssets: item.item1 || item.item2 || item.item3 ? true : false,
         assets: [
@@ -241,8 +241,8 @@ const AfterJoiningWork = () => {
         incentiveCategory: item.incentiveCategory || "",
         attendanceMode: item.attendanceMode || "",
         department: item.department || "",
-        eligibleForPF: item.eligibleForPF || "",
-        eligibleForESIC: item.eligibleForESIC || "",
+        eligibleForPF: item.pfEligible || "",
+        eligibleForESIC: item.esicEligible || "",
         remarks: item.remarks || "",
         nextSalaryIncrementDate: item.nextSalaryIncrementDate || "",
         designation: item.designation || "",
@@ -479,6 +479,133 @@ const AfterJoiningWork = () => {
     });
   }, [historyData, searchTerm]);
 
+  // ── Export CSV ────────────────────────────────────────────────────────────
+  const exportToCSV = () => {
+    const isPending = activeTab === "pending";
+    const data = isPending ? filteredPendingData : filteredHistoryData;
+
+    if (data.length === 0) {
+      toast.error("No data to export.");
+      return;
+    }
+
+    let headers, rows;
+
+    if (isPending) {
+      headers = [
+        "Serial Number",
+        "Timestamp",
+        "Name",
+        "Father Name",
+        "Date Of Joining",
+        "Designation",
+        "Department",
+        "Company",
+        "Planned Date",
+      ];
+      rows = data.map((item) => [
+        item.joiningNo ?? "",
+        formatDateTime(item.created_at),
+        item.candidateName ?? "",
+        item.fatherName ?? "",
+        formatDOB(item.dateOfJoining),
+        item.designation ?? "",
+        item.department ?? "",
+        item.companyName ?? "",
+        formatDateForDisplay(item.plannedDate),
+      ]);
+    } else {
+      headers = [
+        "Serial Number",
+        "Timestamp",
+        "Employee Code",
+        "Name",
+        "Salary Confirmation",
+        "Reporting Officer",
+        "Base Address",
+        "Punch Code",
+        "Official Email",
+        "Email Password",
+        "Bank A/C No.",
+        "IFSC Code",
+        "Designation",
+        "Company",
+        "PF",
+        "Eligible PF",
+        "Eligible ESIC",
+        "Attendance Mode",
+        "Department",
+        "Remarks",
+        "Joining Place",
+        "Next Increment Date",
+        "Blood Group",
+        "ID Marks",
+        "Laptop",
+        "Mobile",
+        "Item 1",
+        "Item 2",
+        "Item 3",
+        "Incentive Category",
+        "Status",
+      ];
+      rows = data.map((item) => [
+        item.joiningNo ?? "",
+        formatDateTime(item.created_at),
+        item.employeeCode ?? "",
+        item.candidateName ?? "",
+        item.salaryConfirmation ?? "",
+        item.reportingOfficer ?? "",
+        item.baseAddress ?? "",
+        item.punchCode ?? "",
+        item.emailId ?? "",
+        item.emailPassword ?? "",
+        item.currentBankAccountNo ?? "",
+        item.currentBankIfsc ?? "",
+        item.designation ?? "",
+        item.companyName ?? "",
+        item.pf ?? "",
+        item.pfEligible ?? "",
+        item.esicEligible ?? "",
+        item.attendanceMode ?? "",
+        item.afterJoiningDepartment || item.department || "",
+        item.remarks ?? "",
+        item.joiningPlace ?? "",
+        formatDateForDisplay(item.nextSalaryIncrementDate),
+        item.bloodGroup ?? "",
+        item.identificationMarks ?? "",
+        item.laptop ?? "",
+        item.mobile ?? "",
+        item.asset1Name ?? "",
+        item.asset2Name ?? "",
+        item.asset3Name ?? "",
+        item.incentiveCategory ?? "",
+        item.actual ? "Completed" : "Pending",
+      ]);
+    }
+
+    const escape = (val) => {
+      const str = String(val ?? "");
+      return str.includes(",") || str.includes('"') || str.includes("\n")
+        ? `"${str.replace(/"/g, '""')}"`
+        : str;
+    };
+
+    const csvContent = [
+      headers.map(escape).join(","),
+      ...rows.map((row) => row.map(escape).join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const tabLabel = isPending ? "Pending" : "History";
+    link.href = url;
+    link.download = `AfterJoiningWork_${tabLabel}_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${tabLabel} data exported successfully!`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -501,6 +628,13 @@ const AfterJoiningWork = () => {
             />
           </div>
         </div>
+        <button
+          onClick={exportToCSV}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors shadow-sm"
+        >
+          <Download size={16} />
+          Export CSV
+        </button>
       </div>
 
       <div className="overflow-hidden bg-white rounded-lg shadow">
@@ -800,7 +934,7 @@ const AfterJoiningWork = () => {
                           {item.punchCode}
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-700">
-                          {item.officialEmail}
+                          {item.emailId}
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-700">
                           {item.emailPassword}
@@ -818,7 +952,7 @@ const AfterJoiningWork = () => {
                           {item.companyName}
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-700">
-                          {item.pfEsic || "-"}
+                          {item.pf || "-"}
                         </td>
 
                         <td className="px-4 py-2 text-sm">
@@ -870,13 +1004,13 @@ const AfterJoiningWork = () => {
                           {item.attendanceMode}
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-700">
-                          {item.department2}
+                          {item.afterJoiningDepartment}
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-700">
-                          {item.eligibleForPF}
+                          {item.pfEligible}
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-700">
-                          {item.eligibleForESIC}
+                          {item.esicEligible}
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-700">
                           {item.remarks}
@@ -895,9 +1029,9 @@ const AfterJoiningWork = () => {
                         </td>
 
                         <td className="px-4 py-2 text-sm">
-                          {item.manualImageUrl ? (
+                          {item.manualImage ? (
                             <a
-                              href={item.manualImageUrl}
+                              href={item.manualImage}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-600 underline hover:text-blue-800"
@@ -910,7 +1044,7 @@ const AfterJoiningWork = () => {
                         </td>
 
                         <td className="px-4 py-2 text-sm text-gray-700">
-                          {item.laptopDetails}
+                          {item.laptop}
                         </td>
 
                         <td className="px-4 py-2 text-sm">
@@ -929,7 +1063,7 @@ const AfterJoiningWork = () => {
                         </td>
 
                         <td className="px-4 py-2 text-sm text-gray-700">
-                          {item.mobileName}
+                          {item.mobile}
                         </td>
 
                         <td className="px-4 py-2 text-sm">
