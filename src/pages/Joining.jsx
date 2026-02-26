@@ -711,7 +711,6 @@ const Joining = () => {
       toast.error("No data to export.");
       return;
     }
-
     let headers, rows;
 
     if (isPending) {
