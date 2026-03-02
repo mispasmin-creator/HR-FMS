@@ -816,6 +816,13 @@ const Joining = () => {
         <h1 className="text-2xl font-bold text-gray-800">
           Joining Management{" "}
         </h1>
+        <button
+          onClick={exportToCSV}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors shadow-sm"
+        >
+          <Download size={16} />
+          Export CSV
+        </button>
       </div>
 
       {/* Filter and Search */}
@@ -835,13 +842,6 @@ const Joining = () => {
             />
           </div>
         </div>
-        <button
-          onClick={exportToCSV}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors shadow-sm"
-        >
-          <Download size={16} />
-          Export CSV
-        </button>
       </div>
 
       {/* Tabs */}

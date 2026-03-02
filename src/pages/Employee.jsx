@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Filter, Search, Clock, CheckCircle, ImageIcon } from "lucide-react";
+import { Filter, Search, Clock, CheckCircle, ImageIcon, Download } from "lucide-react";
 import useDataStore from "../store/dataStore";
 import { fetchJoiningEmployees, fetchLeavingEmployees } from "../services/employeeService";
 import toast from "react-hot-toast";
@@ -15,92 +15,92 @@ const Employee = () => {
   const [error, setError] = useState(null);
 
   const formatDOB = (dateString) => {
-  if (!dateString) return "";
-  
-  // If it's already a string with slashes, return as-is
-  if (typeof dateString === 'string') {
-    // Clean up any extra spaces or characters
-    const cleaned = dateString.toString().trim();
-    
-    // Check if it's already in date format (contains numbers and slashes)
-    if (cleaned.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
-      return cleaned;
-    }
-    
-    // Check for Excel date serial number
-    if (cleaned.match(/^\d+$/) && parseInt(cleaned) > 40000) {
-      // Convert Excel serial number to date
-      const excelDate = parseInt(cleaned);
-      const date = new Date((excelDate - 25569) * 86400 * 1000);
-      
-      if (!isNaN(date.getTime())) {
-        const day = date.getDate().toString().padStart(2, '0');
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const year = date.getFullYear();
-        return `${day}/${month}/${year}`;
+    if (!dateString) return "";
+
+    // If it's already a string with slashes, return as-is
+    if (typeof dateString === 'string') {
+      // Clean up any extra spaces or characters
+      const cleaned = dateString.toString().trim();
+
+      // Check if it's already in date format (contains numbers and slashes)
+      if (cleaned.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+        return cleaned;
+      }
+
+      // Check for Excel date serial number
+      if (cleaned.match(/^\d+$/) && parseInt(cleaned) > 40000) {
+        // Convert Excel serial number to date
+        const excelDate = parseInt(cleaned);
+        const date = new Date((excelDate - 25569) * 86400 * 1000);
+
+        if (!isNaN(date.getTime())) {
+          const day = date.getDate().toString().padStart(2, '0');
+          const month = (date.getMonth() + 1).toString().padStart(2, '0');
+          const year = date.getFullYear();
+          return `${day}/${month}/${year}`;
+        }
       }
     }
-  }
-  
-  // Try to parse as Date object
-  const date = new Date(dateString);
-  if (!isNaN(date.getTime())) {
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0'); // Add 1 here
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  }
-  
-  // If all else fails, return the original string
-  return dateString.toString();
-};
-const fetchJoiningData = async () => {
-  setLoading(true);
-  setTableLoading(true);
-  setError(null);
 
-  try {
-    const result = await fetchJoiningEmployees();
-
-    if (!result.success) {
-      throw new Error(result.error || "Failed to fetch data from joining table");
+    // Try to parse as Date object
+    const date = new Date(dateString);
+    if (!isNaN(date.getTime())) {
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0'); // Add 1 here
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
     }
 
-    setJoiningData(result.data);
-  } catch (error) {
-    console.error("Error fetching joining data:", error);
-    setError(error.message);
-    toast.error(`Failed to load joining data: ${error.message}`);
-  } finally {
-    setLoading(false);
-    setTableLoading(false);
-  }
-};
+    // If all else fails, return the original string
+    return dateString.toString();
+  };
+  const fetchJoiningData = async () => {
+    setLoading(true);
+    setTableLoading(true);
+    setError(null);
 
+    try {
+      const result = await fetchJoiningEmployees();
 
+      if (!result.success) {
+        throw new Error(result.error || "Failed to fetch data from joining table");
+      }
 
-const fetchLeavingData = async () => {
-  setLoading(true);
-  setTableLoading(true);
-  setError(null);
-
-  try {
-    const result = await fetchLeavingEmployees();
-
-    if (!result.success) {
-      throw new Error(result.error || "Failed to fetch data from leaving table");
+      setJoiningData(result.data);
+    } catch (error) {
+      console.error("Error fetching joining data:", error);
+      setError(error.message);
+      toast.error(`Failed to load joining data: ${error.message}`);
+    } finally {
+      setLoading(false);
+      setTableLoading(false);
     }
+  };
 
-    setLeavingData(result.data);
-  } catch (error) {
-    console.error("Error fetching leaving data:", error);
-    setError(error.message);
-    toast.error(`Failed to load leaving data: ${error.message}`);
-  } finally {
-    setLoading(false);
-    setTableLoading(false);
-  }
-};
+
+
+  const fetchLeavingData = async () => {
+    setLoading(true);
+    setTableLoading(true);
+    setError(null);
+
+    try {
+      const result = await fetchLeavingEmployees();
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to fetch data from leaving table");
+      }
+
+      setLeavingData(result.data);
+    } catch (error) {
+      console.error("Error fetching leaving data:", error);
+      setError(error.message);
+      toast.error(`Failed to load leaving data: ${error.message}`);
+    } finally {
+      setLoading(false);
+      setTableLoading(false);
+    }
+  };
 
 
   useEffect(() => {
@@ -130,10 +130,100 @@ const fetchLeavingData = async () => {
     return matchesSearch;
   });
 
+  const exportToCSV = () => {
+    const isJoining = activeTab === "joining";
+    const data = isJoining ? filteredJoiningData : filteredLeavingData;
+
+    if (data.length === 0) {
+      toast.error("No data to export.");
+      return;
+    }
+
+    let headers, rows;
+
+    if (isJoining) {
+      headers = [
+        "Serial Number",
+        "Employee Code",
+        "Name",
+        "Father Name",
+        "Date Of Joining",
+        "Designation",
+        "Department",
+        "Date of Birth",
+        "Gender",
+        "Mobile No",
+        "Email Id",
+        "Aadhar No"
+      ];
+      rows = data.map((item) => [
+        item.serialNumber || "",
+        item.employeeCode || "",
+        item.candidateName || "",
+        item.fatherName || "",
+        item.dateOfJoining || "",
+        item.designation || "",
+        item.department || "",
+        item.dateOfBirth || "",
+        item.gender || "",
+        item.mobileNo || "",
+        item.emailId || "",
+        item.aadharNo || ""
+      ]);
+    } else {
+      headers = [
+        "Serial Number",
+        "Employee Code",
+        "Name",
+        "Date Of Joining",
+        "Date Of Leaving",
+        "Mobile Number",
+        "Father Name",
+        "Designation",
+        "Department",
+        "Reason Of Leaving"
+      ];
+      rows = data.map((item) => [
+        item.serialNumber || "",
+        item.employeeCode || "",
+        item.name || "",
+        item.dateOfJoining || "",
+        item.dateOfLeaving || "",
+        item.mobileNo || "",
+        item.fatherName || "",
+        item.designation || "",
+        item.department || "",
+        item.reasonOfLeaving || ""
+      ]);
+    }
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) => row.map((val) => `"${String(val ?? "").replace(/"/g, '""')}"`).join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const tabLabel = isJoining ? "Active_Employees" : "Left_Employees";
+    link.href = url;
+    link.download = `Employee_${tabLabel}_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${tabLabel} data exported successfully!`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold ">Employee </h1>
+        <button
+          onClick={exportToCSV}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors shadow-sm"
+        >
+          <Download size={16} />
+          Export CSV
+        </button>
       </div>
 
       {/* Filter and Search - This section won't scroll */}
@@ -160,22 +250,20 @@ const fetchLeavingData = async () => {
         <div className="border-b border-gray-300 ">
           <nav className="flex -mb-px">
             <button
-              className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                activeTab === "joining"
+              className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "joining"
                   ? "border-indigo-500 text-indigo-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
+                }`}
               onClick={() => setActiveTab("joining")}
             >
               <CheckCircle size={16} className="inline mr-2" />
               Joining ({filteredJoiningData.length})
             </button>
             <button
-              className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                activeTab === "leaving"
+              className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "leaving"
                   ? "border-indigo-500 text-indigo-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
+                }`}
               onClick={() => setActiveTab("leaving")}
             >
               <Clock size={16} className="inline mr-2" />
@@ -254,7 +342,7 @@ const fetchLeavingData = async () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Department
                       </th>
-                     
+
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Aadhar No
                       </th>
@@ -293,7 +381,7 @@ const fetchLeavingData = async () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {item.serialNumber}
                           </td>
-                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {item.employeeCode}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -374,7 +462,7 @@ const fetchLeavingData = async () => {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-indigo-600 hover:text-indigo-800"
-                              ><ImageIcon size={20}/></a>
+                              ><ImageIcon size={20} /></a>
                             ) : (
                               "-"
                             )}
@@ -385,7 +473,7 @@ const fetchLeavingData = async () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {item.department}
                           </td>
-                         
+
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {item.aadharNo || "-"}
                           </td>
@@ -476,7 +564,7 @@ const fetchLeavingData = async () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {item.serialNumber}
                           </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {item.employeeCode}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

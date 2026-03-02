@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Search, Clock, CheckCircle, X, AlertCircle } from 'lucide-react';
+import { Search, Clock, CheckCircle, X, AlertCircle, Download } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import {
   fetchEmployeeForLeaving,
@@ -122,6 +122,85 @@ const Leaving = () => {
       item.employeeId?.toLowerCase().includes(searchLower);
     return matchesSearch;
   });
+
+  const exportToCSV = () => {
+    const isPending = activeTab === 'pending';
+    const data = isPending ? (selectedEmployee ? [selectedEmployee] : []) : filteredHistoryData;
+
+    if (data.length === 0) {
+      toast.error("No data to export.");
+      return;
+    }
+
+    let headers, rows;
+
+    if (isPending) {
+      headers = [
+        'Employee Code',
+        'Serial Number',
+        'Name',
+        'Father Name',
+        'Date of Joining',
+        'Designation',
+        'Department',
+        'Mobile No',
+        'Firm Name',
+        'Working Place'
+      ];
+      rows = data.map(item => [
+        item.employeeCode || '',
+        item.employeeNo || '',
+        item.candidateName || '',
+        item.fatherName || '',
+        item.dateOfJoining || '',
+        item.designation || '',
+        item.department || '',
+        item.mobileNo || '',
+        item.firmName || '',
+        item.workingPlace || ''
+      ]);
+    } else {
+      headers = [
+        'Employee Id',
+        'Timestamp',
+        'Name',
+        'Date Of Joining',
+        'Date Of Leaving',
+        'Designation',
+        'Department',
+        'Amount',
+        'Working Days',
+        'Reason Of Leaving'
+      ];
+      rows = data.map(item => [
+        item.employeeId || '',
+        formatDateTime(item.timestamp),
+        item.name || '',
+        item.dateOfJoining || '',
+        item.dateOfLeaving || '',
+        item.designation || '',
+        item.department || '',
+        item.amount || '',
+        item.workingDays || '',
+        item.reasonOfLeaving || ''
+      ]);
+    }
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(val => `"${String(val ?? "").replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const tabLabel = isPending ? "Pending" : "History";
+    link.href = url;
+    link.download = `Leaving_${tabLabel}_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${tabLabel} data exported successfully!`);
+  };
 
   const handleLeavingClick = (item) => {
     setSelectedItem(item);
@@ -315,6 +394,13 @@ const Leaving = () => {
       <Toaster position="top-right" />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Leaving</h1>
+        <button
+          onClick={exportToCSV}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors shadow-sm"
+        >
+          <Download size={16} />
+          Export CSV
+        </button>
       </div>
 
       {/* Employee Code Search Form */}
