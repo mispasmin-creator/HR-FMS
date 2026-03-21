@@ -96,7 +96,7 @@ export const fetchAfterJoiningData = async () => {
         remarks: item.remarks || "",
         joiningPlace: item.after_joining_joining_place || "",
         nextSalaryIncrementDate: item.next_salary_increment_date || "",
-        companyName: item.company || item.after_joining_company_name || "",
+        companyName: item.after_joining_company_name || item.company || "",
 
         // personal
         bloodGroup: item.blood_group || "",
