@@ -117,6 +117,7 @@ const Employee = () => {
       item.fatherName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.emailId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.mobileNo?.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesSearch;
   });
@@ -126,7 +127,8 @@ const Employee = () => {
       item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.serialNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.employeeCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.designation?.toLowerCase().includes(searchTerm.toLowerCase());
+      item.designation?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.companyName?.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesSearch;
   });
 
@@ -150,6 +152,7 @@ const Employee = () => {
         "Date Of Joining",
         "Designation",
         "Department",
+        "Company",
         "Date of Birth",
         "Gender",
         "Mobile No",
@@ -164,6 +167,7 @@ const Employee = () => {
         item.dateOfJoining || "",
         item.designation || "",
         item.department || "",
+        item.companyName || "",
         item.dateOfBirth || "",
         item.gender || "",
         item.mobileNo || "",
@@ -181,6 +185,7 @@ const Employee = () => {
         "Father Name",
         "Designation",
         "Department",
+        "Company",
         "Reason Of Leaving"
       ];
       rows = data.map((item) => [
@@ -193,6 +198,7 @@ const Employee = () => {
         item.fatherName || "",
         item.designation || "",
         item.department || "",
+        item.companyName || "",
         item.reasonOfLeaving || ""
       ]);
     }
@@ -251,8 +257,8 @@ const Employee = () => {
           <nav className="flex -mb-px">
             <button
               className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "joining"
-                  ? "border-indigo-500 text-indigo-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                ? "border-indigo-500 text-indigo-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               onClick={() => setActiveTab("joining")}
             >
@@ -261,8 +267,8 @@ const Employee = () => {
             </button>
             <button
               className={`py-4 px-6 font-medium text-sm border-b-2 ${activeTab === "leaving"
-                  ? "border-indigo-500 text-indigo-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                ? "border-indigo-500 text-indigo-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               onClick={() => setActiveTab("leaving")}
             >
@@ -299,6 +305,9 @@ const Employee = () => {
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Designation
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Company
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Aadhar Photo
@@ -342,7 +351,6 @@ const Employee = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Department
                       </th>
-
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Aadhar No
                       </th>
@@ -397,6 +405,9 @@ const Employee = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {item.designation}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {item.companyName || "-"}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {item.aadharPhoto ? (
@@ -473,7 +484,6 @@ const Employee = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {item.department}
                           </td>
-
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {item.aadharNo || "-"}
                           </td>
@@ -525,6 +535,9 @@ const Employee = () => {
                       {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Work Location</th> */}
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Designation
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Company
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Department
@@ -589,6 +602,9 @@ const Employee = () => {
                           {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.workingLocation || '-'}</td> */}
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {item.designation}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {item.companyName || "N/A"}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {item.department}
